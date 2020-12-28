@@ -7,3 +7,4 @@ set -eoux pipefail
 
 scripts/install
 pip install -r requirements-dev.in
+callisto --path=$PWD
