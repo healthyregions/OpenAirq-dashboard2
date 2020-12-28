@@ -10,11 +10,26 @@ _logger = logger.create(__name__)
 
 
 def get(app_token):
+    """Retrieve weekly COVID-19 data for the city of Chicago.
+
+    Data is published by the City of Chicago via Socratica. The data can be found here
+     https://dev.socrata.com/foundry/data.cityofchicago.org/yhhz-zm2v.
+
+    Parameters
+    ----------
+    app_token : str
+        Secret token for Socratica applications. See README.md#Secrets for more info.
+
+    Returns
+    -------
+    bytes
+        Byte-encoded string containing weekly COVID-19 data for the city of Chicago.
+    """
     _logger.info("Requesing %s...", API_ENDPOINT)
     response = requests.get(
         API_ENDPOINT,
         headers={"X-App-Token": app_token},
-        params={"$limit": RESPONSE_LIMIT}
+        params={"$limit": RESPONSE_LIMIT},
     )
     response.raise_for_status()
     return response.content
