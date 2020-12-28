@@ -11,7 +11,8 @@ _logger = logger.create(__name__)
 
 
 def download_persist():
-    _logger.info("Running COVID weekly job...")
+    """Download, parse, and persist weekly COVID data for the city of Chicago to local."""
+    _logger.info("Running weekly COVID data ingestion...")
     run(app_token=SOCRATICA_APP_TOKEN, persist_filepath=PERSIST_FILEPATH)
     _logger.info("Complete!")
 
