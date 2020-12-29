@@ -18,4 +18,5 @@ setup(
     include_package_data=True,
     description="Utilities for retrieving weekly COVID-19 case data by Chicago zipcode",
     long_description="\n" + open("README.md").read(),
+    scripts=["bin/run"],
 )
