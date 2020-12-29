@@ -9,7 +9,7 @@ API_ENDPOINT = "https://data.cityofchicago.org/resource/yhhz-zm2v.csv"
 _logger = logger.create(__name__)
 
 
-def get(app_token):
+def get(app_token, response_limit=RESPONSE_LIMIT):
     """Retrieve weekly COVID-19 data for the city of Chicago.
 
     Data is published by the City of Chicago via Socratica. The data can be found here
@@ -19,6 +19,8 @@ def get(app_token):
     ----------
     app_token : str
         Secret token for Socratica applications. See README.md#Secrets for more info.
+    response_limit : int
+        Max number of rows to allow in the response.
 
     Returns
     -------
@@ -29,7 +31,7 @@ def get(app_token):
     response = requests.get(
         API_ENDPOINT,
         headers={"X-App-Token": app_token},
-        params={"$limit": RESPONSE_LIMIT},
+        params={"$limit": response_limit},
     )
     response.raise_for_status()
     return response.content
