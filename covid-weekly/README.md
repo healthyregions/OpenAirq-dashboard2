@@ -47,7 +47,7 @@ The secrets currenly used are:
 
 ## Using
 
-- `scripts/run` to run as a script
+- `run --filepath={LOCAL_FILEPATH}` to run as a script
 - `from covid_weekly import run` to run as a Python package
 
 ## Developer Notes
