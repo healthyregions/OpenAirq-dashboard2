@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eoux pipefail
+# -e exit on first error
+# -u exit if variable is not set
+# -x print each command run to stdout
+# -o pipefail return the error status of the last command to exit
+
+scripts/lint
+
+echo "Running unit and integration tests..."
+python3 -m pytest -v tests
+echo "Success!"

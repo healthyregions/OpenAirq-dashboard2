@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euxo pipefail
+# -e exit on first error
+# -u exit if variable is not set
+# -x print each command run to stdout
+# -o pipefail return the error status of the last command to exit
+
+package_directory=covid_weekly
+
+echo "Checking documentation..."
+python3 -m pydocstyle $package_directory
+echo "Success!"
+
+echo "Checking code style with black..."
+python3 -m black --line-length 90 --check $package_directory
+echo "Success!"
+
+echo "Checking code style with pylint..."
+python3 -m pylint $package_directory
+echo "Success!"

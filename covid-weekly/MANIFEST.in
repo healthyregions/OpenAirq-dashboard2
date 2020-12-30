@@ -1,0 +1,4 @@
+include requirements*
+include VERSION
+
+graft scripts/

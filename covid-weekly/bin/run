@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+from datetime import date
+import os
+
+import click
+
+from covid_weekly import logger, run
+
+SOCRATICA_APP_TOKEN = os.environ["SOCRATICA_APP_TOKEN"]
+PERSIST_FILEPATH = os.path.join("output", f"covid_weekly_chicago_{date.today():%Y%m%d}.csv")
+
+_logger = logger.create(__name__)
+
+
+@click.command()
+@click.option(
+    "--filepath", default=PERSIST_FILEPATH, help="Local filepath to persist to."
+)
+def download_persist(filepath):
+    """Download, parse, and persist weekly COVID data for the city of Chicago to local."""
+    _logger.info("Running weekly COVID data ingestion...")
+    run(app_token=SOCRATICA_APP_TOKEN, persist_filepath=filepath)
+    _logger.info("Complete!")
+
+
+if __name__ == "__main__":
+    download_persist()
