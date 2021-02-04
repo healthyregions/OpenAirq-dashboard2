@@ -9,15 +9,58 @@ library(lubridate)
 library(raster)
 library(scales)
 library(tmap)
-library(tidyverse)
+library(forcats)
+library(broom)
+library(wbstats)
+library(wordcloud)
+library(tidytext)
+library(viridis)
 
 
-## Load shapefiles for 21 counties 
 
-counties <- st_read("Data/LargeAreaCounties/LargeAreaCounties.shp")
+## Scraping Data from Airnow 
+## It seems that scraping directly from airnow using R is not an option
+## Python should be working 
+## Should we change to python?
 
-## Import PM2.5 Data
+apikey <- '8C890D5C-A78C-41A9-A087-061A9A8F1B10'
+base_url <-"https://www.airnowapi.org/aq/data/"
+current <- Sys.Date()
+start<- as.Date('2021-01-01')
+bounding<- paste0('-92.888114,36.970298,-84.784579,47.080621', collapse=",")
 
+a<- GET(base_url, query=list("BBOX" ="-92.888114,36.970298,-84.784579,47.080621",
+                              "parameters" = 'pm25',
+                              "startDate"= '2021-01-01',
+                              "endDate"= current,
+                              "dataType"= 'B',
+                              'format'='text/csv',
+                              'api_key'= apikey,
+                              'verbose'=1,
+                              'nowcastonly'=0,
+                              'includerawconcentrations'=0))
+                              
+## Scraping from EPA website 
+## Data of year 2021 isn't available scraping, but only available downloading, 
+## It has the most complete data
+key = "khakiram62"
+base_url<- "https://aqs.epa.gov/data/api/dailyData/byState/"
+IL1<- GET(base_url, query=list("email" = "shuaiyuan4@gmail.com",
+                              "param"= 88101,
+                              "key"= key,
+                              "bdate"= 20200101,
+                              "edate"= 20201231,
+                              "state"= 17))
+
+IL<- GET(base_url, query=list("email" = "shuaiyuan4@gmail.com",
+                              "param"= 88101,
+                              "key"= key,
+                              "bdate"= 20210101,
+                              "edate"= 20210202,
+                              "state"= 17))
+
+
+## Direcly from importing 
 import_pm <- function(state_file){
   read_csv(state_file)}
 
@@ -36,6 +79,10 @@ county.pm25<- full.data%>%
   pivot_wider(names_from = Date, values_from = "pm2.5")
 
 x<-county.pm25
+
+## Load shapefiles for 21 counties 
+
+counties <- st_read("Data/LargeAreaCounties/LargeAreaCounties.shp")
 
 # Create a function that calculate the means for every 7 days
 byapply <- function(x, by, fun, ...)
