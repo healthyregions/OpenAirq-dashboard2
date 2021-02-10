@@ -17,50 +17,11 @@ library(tidytext)
 library(viridis)
 
 
-
-## Scraping Data from Airnow 
-## It seems that scraping directly from airnow using R is not an option
-## Python should be working 
-## Should we change to python?
-
-apikey <- '8C890D5C-A78C-41A9-A087-061A9A8F1B10'
-base_url <-"https://www.airnowapi.org/aq/data/"
-current <- Sys.Date()
-start<- as.Date('2021-01-01')
-bounding<- paste0('-92.888114,36.970298,-84.784579,47.080621', collapse=",")
-
-a<- GET(base_url, query=list("BBOX" ="-92.888114,36.970298,-84.784579,47.080621",
-                              "parameters" = 'pm25',
-                              "startDate"= '2021-01-01',
-                              "endDate"= current,
-                              "dataType"= 'B',
-                              'format'='text/csv',
-                              'api_key'= apikey,
-                              'verbose'=1,
-                              'nowcastonly'=0,
-                              'includerawconcentrations'=0))
-                              
-## Scraping from EPA website 
-## Data of year 2021 isn't available scraping, but only available downloading, 
-## It has the most complete data
-key = "khakiram62"
-base_url<- "https://aqs.epa.gov/data/api/dailyData/byState/"
-IL1<- GET(base_url, query=list("email" = "shuaiyuan4@gmail.com",
-                              "param"= 88101,
-                              "key"= key,
-                              "bdate"= 20200101,
-                              "edate"= 20201231,
-                              "state"= 17))
-
-IL<- GET(base_url, query=list("email" = "shuaiyuan4@gmail.com",
-                              "param"= 88101,
-                              "key"= key,
-                              "bdate"= 20210101,
-                              "edate"= 20210202,
-                              "state"= 17))
+## Load shapefiles for 21 counties 
+counties <- st_read("Data/LargeAreaCounties/LargeAreaCounties.shp")
 
 
-## Direcly from importing 
+## Import data from the folder 
 import_pm <- function(state_file){
   read_csv(state_file)}
 
@@ -68,6 +29,7 @@ pm2.5 <- dir("Data/PM2.5_2020_12_2021_1", pattern = "\\.csv$", full.names = TRUE
 
 full.data <- map_df(pm2.5, import_pm)
 
+## Date Wrangling to Calculate Daily Average for PM2.5
 county.pm25<- full.data%>%
   filter(COUNTY %in% counties$COUNTYNAME)%>%
   mutate(Date = as.Date(Date, format = "%m/%d/%Y"))%>%
@@ -76,15 +38,14 @@ county.pm25<- full.data%>%
   summarise(pm2.5 = mean(`Daily Mean PM2.5 Concentration`, na.rm =TRUE),
             latitude = mean(SITE_LATITUDE), 
             longitude = mean(SITE_LONGITUDE) )%>%
-  pivot_wider(names_from = Date, values_from = "pm2.5")
+  filter(Date >= '2020-12-01')%>%
+  ungroup(Date)%>%
+  arrange(desc(Date))%>%
+  pivot_wider(names_from = 'Date', values_from = 'pm2.5')
 
-x<-county.pm25
 
-## Load shapefiles for 21 counties 
 
-counties <- st_read("Data/LargeAreaCounties/LargeAreaCounties.shp")
-
-# Create a function that calculate the means for every 7 days
+# Create a function that calculate the 7-day average from the latest to 2020-12-07 
 byapply <- function(x, by, fun, ...)
 {
   # Create index list
@@ -106,8 +67,26 @@ byapply <- function(x, by, fun, ...)
   })
 }
 
-# Run function
-y <- as.data.frame(t(byapply(x[5:ncol(x)], 7, rowMeans, na.rm=TRUE)))
-colnames(y) = gsub("V", "Week_", colnames(y))
 
-# Bind with Sensor Location 
+# Run function
+pm25 <- as.data.frame(t(byapply(county.pm25[5:ncol(county.pm25)],7, rowMeans, na.rm=TRUE)))
+colnames(pm25) = gsub("V", "Week_", colnames(pm25))
+
+## Date Wrangling to Calculate Daily Average for PM2.5
+county.aqi<- full.data%>%
+  filter(COUNTY %in% counties$COUNTYNAME)%>%
+  mutate(Date = as.Date(Date, format = "%m/%d/%Y"))%>%
+  dplyr::select(Date, `Site ID`,DAILY_AQI_VALUE, COUNTY,SITE_LATITUDE, SITE_LONGITUDE )%>%
+  group_by(Date, `Site ID`,COUNTY )%>%
+  summarise(aqi = mean(DAILY_AQI_VALUE, na.rm =TRUE),
+            latitude = mean(SITE_LATITUDE), 
+            longitude = mean(SITE_LONGITUDE) )%>%
+  filter(Date >= '2020-12-01')%>%
+  ungroup(Date)%>%
+  arrange(desc(Date))%>%
+  pivot_wider(names_from = 'Date', values_from = 'aqi')
+# Run function 
+aqi<- as.data.frame(t(byapply(county.aqi[5:ncol(county.aqi)],7, rowMeans, na.rm=TRUE)))
+colnames(aqi)<- gsub("V", "Week_", colnames(aqi))
+
+
