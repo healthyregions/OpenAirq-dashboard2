@@ -25,9 +25,9 @@ counties <- st_read("Data/LargeAreaCounties/LargeAreaCounties.shp")
 import_pm <- function(state_file){
   read_csv(state_file)}
 
-pm2.5 <- dir("Data/PM2.5_2020_12_2021_1", pattern = "\\.csv$", full.names = TRUE)
+air <- dir("Data/PM2.5_2020_12_2021_2", pattern = "\\.csv$", full.names = TRUE)
 
-full.data <- map_df(pm2.5, import_pm)
+full.data <- map_df(air, import_pm)
 
 ## Date Wrangling to Calculate Daily Average for PM2.5
 county.pm25<- full.data%>%
@@ -43,36 +43,20 @@ county.pm25<- full.data%>%
   arrange(desc(Date))%>%
   pivot_wider(names_from = 'Date', values_from = 'pm2.5')
 
+sensor<- county.pm25[1:4]
+pm25_raw<- county.pm25[5:ncol(county.pm25)]
+colnames_pm25<- colnames(pm25_raw[1:(ncol(pm25_raw)-6)])
+pm25 <- sapply(1:(ncol(pm25_raw)-6), function(z) {apply(pm25_raw[,z:(z+6)],1,mean, na.rm=T)})
+pm25<-as.data.frame(pm25)
+colnames(pm25)<- colnames_pm25 
+colnames(pm25)<- gsub("-", "", colnames(pm25))
+colnames(pm25)<- paste0('PM25_', colnames(pm25))
+pm25<- cbind(sensor, pm25)
 
+##Write the csv file of pm2.5
+write.csv(pm25, "pm25.csv")
 
-# Create a function that calculate the 7-day average from the latest to 2020-12-07 
-byapply <- function(x, by, fun, ...)
-{
-  # Create index list
-  if (length(by) == 1)
-  {
-    nc <- ncol(x)
-    split.index <- rep(1:ceiling(nc / by), each = by, length.out = nc)
-  } else # 'by' is a vector of groups
-  {
-    nc <- length(by)
-    split.index <- by
-  }
-  index.list <- split(seq(from = 1, to = nc), split.index)
-  
-  # Pass index list to fun using sapply() and return object
-  sapply(index.list, function(i)
-  {
-    do.call(fun, list(x[, i], ...))
-  })
-}
-
-
-# Run function
-pm25 <- as.data.frame(t(byapply(county.pm25[5:ncol(county.pm25)],7, rowMeans, na.rm=TRUE)))
-colnames(pm25) = gsub("V", "Week_", colnames(pm25))
-
-## Date Wrangling to Calculate Daily Average for PM2.5
+## Date Wrangling to Calculate Daily Average for AQI
 county.aqi<- full.data%>%
   filter(COUNTY %in% counties$COUNTYNAME)%>%
   mutate(Date = as.Date(Date, format = "%m/%d/%Y"))%>%
@@ -85,8 +69,17 @@ county.aqi<- full.data%>%
   ungroup(Date)%>%
   arrange(desc(Date))%>%
   pivot_wider(names_from = 'Date', values_from = 'aqi')
-# Run function 
-aqi<- as.data.frame(t(byapply(county.aqi[5:ncol(county.aqi)],7, rowMeans, na.rm=TRUE)))
-colnames(aqi)<- gsub("V", "Week_", colnames(aqi))
+
+aqi_raw<- county.aqi[5:ncol(county.aqi)]
+colnames_aqi<- colnames(aqi_raw[1:(ncol(aqi_raw)-6)])
+aqi <- sapply(1:(ncol(aqi_raw)-6), function(z) {apply(aqi_raw[,z:(z+6)],1,mean, na.rm=T)})
+aqi<-as.data.frame(aqi)
+colnames(aqi)<- colnames_aqi 
+colnames(aqi)<- gsub("-", "", colnames(aqi))
+colnames(aqi)<- paste0('AQI_', colnames(aqi))
+aqi<- cbind(sensor, aqi)
+
+##Write the csv file of aqi
+write.csv(aqi, "aqi.csv")
 
 
