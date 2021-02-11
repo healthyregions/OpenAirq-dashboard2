@@ -5,6 +5,7 @@
 This repo houses the private, city-facing dashboard that integrates AirQ indicators and weekly COVID updates:
 
 - Weekly update of PM 2.5 and AQI sensors throughout Chicagoland area (visualized as graduated color map)
+
 -- Data pull finalized
 -- Visualize latest version 
 
