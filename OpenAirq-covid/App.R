@@ -245,36 +245,81 @@ ui <- dashboardPage(
       
     )))
 
+pm25.bins<- c(0,12,35.4, 55.4, 150.4, 250.4, 500)
+pm25.palette<- c('#00FF00','#FFFF00','#FFA500','#FF0000','#99004C','#800000')
+pm25.legend.labels<- c("Good", "Moderate", "USG", 
+                       "Unhealthy", "Very Unhealthy", "Harzardous")
+pm25palette <- colorBin(palette= pm25.palette, bins = pm25.bins, na.color="transparent")
 
-server <- function(input, output) {
-  
-  
-  output$pm25_map <- renderLeaflet({
-    
-    dashMap(this.pm25.name, pm25.pal, 
-            raster = master.raster, area = large.area, 
-            layerId = large.area$FIPS, EPApoints = epa.points, 
-            VarName = "PM25")
-  })
-  
-}
-mypalette <- colorBin( palette="YlOrBr", domain=quakes$mag, na.color="transparent")
+
+aqi.bins<- c(0, 50, 100, 150, 200, 300, 500)
+aqi.palette<- c('#00FF00','#FFFF00','#FFA500','#FF0000','#99004C','#800000')
+aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="transparent")
+aqi.legend.labels<- c("Good", "Moderate", "USG", 
+                       "Unhealthy", "Very Unhealthy", "Harzardous")
+
 
 server <- function(input, output) {
 
   ##### HOME END #####
   
   output$pm25_map <- renderLeaflet({
-    leaflet(counties) %>%
-      addProviderTiles(provider = "OpenStreetMap.HOT") %>%
-      setView(lat = "41.97736", lng = "-87.62255", zoom = 7) %>% 
-      addCircleMarkers(county.pm25$SITE_LONGITUDE,county.pm25$SITE_LATITUDE, 
-                         fillColor = mypalette(data_input), fillOpacity = 0.7, color="white", radius=8, stroke=FALSE,
-                         label = labels_input,
-                         labelOptions = labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), textsize = "13px", direction = "auto")
-        )
-
+    leaflet() %>%
+      addProviderTiles("CartoDB.Positron")%>%
+      addPolygons(data = large.area, 
+                  color = "darkslategray",
+                  fillOpacity  = 0.00, 
+                  stroke = TRUE,
+                  opacity = 1,
+                  layerId = large.area$FIPS,
+                  weight = 1,
+                  highlight = highlightOptions(
+                    weight = 2, 
+                    color = "gray", 
+                    fillOpacity = 0.05))%>%
+      addCircles(data = pm25$PM25_20210210,
+                 lng = pm25$longitude, 
+                 lat = pm25$latitude, 
+                 color = pm25palette(pm25$PM25_20210210), 
+                 fillOpacity = 0.5, 
+                 radius= 5000, 
+                 stroke=FALSE)%>%
+      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210210,
+                labFormat = function(type, cuts, p) {
+                  paste0(pm25.legend.labels)
+                },
+                title = "PM2.5", opacity = 1)
+      
   })
+  output$aqi_map <- renderLeaflet({
+    leaflet() %>%
+      addProviderTiles("CartoDB.Positron")%>%
+      addPolygons(data = large.area, 
+                  color = "darkslategray",
+                  fillOpacity  = 0.00, 
+                  stroke = TRUE,
+                  opacity = 1,
+                  layerId = large.area$FIPS,
+                  weight = 1,
+                  highlight = highlightOptions(
+                    weight = 2, 
+                    color = "gray", 
+                    fillOpacity = 0.05))%>%
+      addCircles(data = aqi$AQI_20210210,
+                 lng = aqi$longitude, 
+                 lat = aqi$latitude, 
+                 color = aqipalette(aqi$AQI_20210210), 
+                 fillOpacity = 0.5, 
+                 radius= 5000, 
+                 stroke=FALSE)%>%
+      addLegend("bottomright", pal = aqipalette, values = aqi$AQI_20210210,
+                labFormat = function(type, cuts, p) {
+                  paste0(aqi.legend.labels)
+                },
+                title = "AQI", opacity = 1)
+    
+  })
+  
 }
 
 shinyApp(ui, server)
