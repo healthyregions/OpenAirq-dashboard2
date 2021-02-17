@@ -14,26 +14,10 @@ large.area$COUNTYNAME <- as.character(large.area$COUNTYNAME)
 
 descriptions <- read.csv("Data/Description.csv", stringsAsFactors = F)
 
-county.avgs <- read.csv("Data/county_averages_monthly.csv")
-county.avgs$Name <- as.character(county.avgs$Name)
-
-var.avgs <- colMeans(county.avgs[,4:ncol(county.avgs)], na.rm = T)
-
-epa.points <- st_read("Data/EPA_Points")
+pm25<- read.csv("Data/PM25_Weekly/pm25.csv")
+aqi<- read.csv("Data/PM25_Weekly/aqi.csv")
 
 chi.map <- st_read("Data/Chicago")
-#chi.map <- sf::st_transform(chi.map, CRS('+proj=longlat +datum=WGS84'))
-
-cdph.permits <- st_read("Data/CDPH_Permits")
-
-
-#NN Data Loading
-nn.raster <- stack("Data/NN_Results.tif")
-nn.names <- read.csv("Data/NN_Raster_Names.csv")
-
-names(nn.raster) <- nn.names$nn_names
-
-
 ##### DATA LOADING END ##### 
 
 ## Create a spatial object for sites 
