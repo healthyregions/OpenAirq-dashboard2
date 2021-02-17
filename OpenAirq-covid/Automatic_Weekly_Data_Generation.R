@@ -25,7 +25,7 @@ counties <- st_read("Data/LargeAreaCounties/LargeAreaCounties.shp")
 import_pm <- function(state_file){
   read_csv(state_file)}
 
-air <- dir("Data/PM2.5_2020_12_2021_2", pattern = "\\.csv$", full.names = TRUE)
+air <- dir("Data/PM25_Raw", pattern = "\\.csv$", full.names = TRUE)
 
 full.data <- map_df(air, import_pm)
 
@@ -54,7 +54,7 @@ colnames(pm25)<- paste0('PM25_', colnames(pm25))
 pm25<- cbind(sensor, pm25)
 
 ##Write the csv file of pm2.5
-write.csv(pm25, "pm25.csv")
+write.csv(pm25, "Data/PM25_Weekly/pm25.csv")
 
 ## Date Wrangling to Calculate Daily Average for AQI
 county.aqi<- full.data%>%
@@ -80,6 +80,6 @@ colnames(aqi)<- paste0('AQI_', colnames(aqi))
 aqi<- cbind(sensor, aqi)
 
 ##Write the csv file of aqi
-write.csv(aqi, "aqi.csv")
+write.csv(aqi, "Data/PM25_Weekly/aqi.csv")
 
 
