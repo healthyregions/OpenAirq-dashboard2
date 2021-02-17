@@ -42,13 +42,10 @@ generateTab <- function(tabname, variablename, variabledescription, sourcedescri
                   tabPanel(title = "Source",
                            h4("Data Source"),
                            p(sourcedescription))
-                ))
-            ),
+                  )),
             box(width = 8,
-                leafletOutput(paste(tabname, "map", sep = "_"), height = mapheight)
-                
-            )
-          )
+                leafletOutput(paste(tabname, "map", sep = "_"), height = mapheight))
+          ))
 }
 
 
