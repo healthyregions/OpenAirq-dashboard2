@@ -20,8 +20,10 @@ descriptions <- read.csv("Data/Description.csv", stringsAsFactors = F)
 
 pm25<- read.csv("Data/PM25_Weekly/pm25.csv")
 aqi<- read.csv("Data/PM25_Weekly/aqi.csv")
-
-chi.map <- st_read("Data/Chicago")
+covid.raw<- read.csv("Data/covid-weekly/docs/example_output.csv")
+chi.community.map <- st_read("Data/Chicago")
+chi.admin.map<- st_read("Data/ZipcodeBoundary")
+covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
 
 ##### DATA LOADING END ##### 
 
@@ -45,6 +47,13 @@ aqi.description <- descriptions$Description[descriptions["Variable"] == "AQI"]
 aqi.source <- descriptions$Source[descriptions["Variable"] == "AQI"]
 
 ##### PM2.5 END #####
+
+##### COVID START #####
+covid.tabname <- "covid"
+covid.name <- "Coronavirus Disease (COVID-19)"
+covid.description <- descriptions$Description[descriptions["Variable"] == "COVID"]
+covid.source <- descriptions$Source[descriptions["Variable"] == "COVID"]
+##### COVID END #####
 
 ##### VARIABLE END #####
 
@@ -180,19 +189,6 @@ theme_air_chicago <- shinyDashboardThemeDIY(
 ##### THEME END #####
 
 
-## Visualization
-tmap_mode("view")
-
-tm_shape(counties) +
-  tm_borders() +
-  tm_shape(county.pm25) +
-  tm_bubbles(col  = "PM 2.5 emissions",
-             alpha = 0.3,
-             size = "PM 2.5 emissions",
-             style = "fisher")
-
-##### DATA LOADING END #####
-
 ###Function ###
 
 ui <- dashboardPage(
@@ -215,6 +211,7 @@ ui <- dashboardPage(
                                menuItem("EPA Sensor Data", icon = icon("envira"),
                                         menuSubItem("PM2.5", tabName = "pm25"),
                                         menuSubItem("AQI", tabName = "aqi")),
+                               menuItem("COVID Data", tabName = "covid", icon = icon("medkit")),
                                menuItem("Downloads", icon = icon("download"), tabName = "downloads"))
   ),
   
@@ -237,8 +234,10 @@ ui <- dashboardPage(
       generateOneTimeTab(pm25.tabname, pm25.name, pm25.description, pm25.source),
       
       generateOneTimeTab(aqi.tabname, aqi.name, aqi.description, aqi.source),
-  
       
+      generateTab(covid.tabname, covid.name, covid.description, covid.source),
+      
+
       ##### DOWNLOADS START #####
       tabItem(tabName = "downloads")
       ##### DOWNLOADS END #####
@@ -254,11 +253,11 @@ pm25palette <- colorBin(palette= pm25.palette, bins = pm25.bins, na.color="trans
 
 aqi.bins<- c(0, 50, 100, 150, 200, 300, 500)
 aqi.palette<- c('#00FF00','#FFFF00','#FFA500','#FF0000','#99004C','#800000')
-aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="transparent")
 aqi.legend.labels<- c("Good", "Moderate", "USG", 
                        "Unhealthy", "Very Unhealthy", "Harzardous")
+aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="transparent")
 
-
+covidpalette <- colorBin(palette="YlOrRd" , domain = covid$cases_weekly_2020.12.20, na.color="transparent")
 server <- function(input, output) {
 
   ##### HOME END #####
@@ -317,6 +316,21 @@ server <- function(input, output) {
                   paste0(aqi.legend.labels)
                 },
                 title = "AQI", opacity = 1)
+    
+  })
+  output$covid_map <- renderLeaflet({
+    leaflet() %>%
+      addProviderTiles("CartoDB.Positron")%>%
+      addPolygons(data = covid, 
+                  fillColor = covidpalette(covid$cases_weekly_2020.12.20),
+                  fillOpacity  = 0.7, 
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3")%>%
+      addLegend("bottomright", pal = covidpalette, values = covid$cases_weekly_2020.12.20,
+                title = "COVID Weekly Confirmed Cases", opacity = 1)
     
   })
   
