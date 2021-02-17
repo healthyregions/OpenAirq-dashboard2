@@ -8,7 +8,10 @@ library(sf)
 library(lubridate)
 library(tidyverse)
 
+
+
 ##### DATA LOADING START #####
+source("Functions.R")
 
 large.area <- st_read("Data/LargeAreaCounties")
 large.area$COUNTYNAME <- as.character(large.area$COUNTYNAME)
@@ -231,9 +234,9 @@ ui <- dashboardPage(
       
       ##### PM2.5 START #####
     
-      generateQuarterlyTab(pm25.tabname, pm25.name, pm25.description, pm25.source),
+      generateOneTimeTab(pm25.tabname, pm25.name, pm25.description, pm25.source),
       
-      generateQuarterlyTab(aqi.tabname, aqi.name, aqi.description, aqi.source),
+      generateOneTimeTab(aqi.tabname, aqi.name, aqi.description, aqi.source),
   
       
       ##### DOWNLOADS START #####
@@ -243,18 +246,10 @@ ui <- dashboardPage(
     )))
 
 
-mypalette <- colorBin( palette="YlOrBr", domain=quakes$mag, na.color="transparent")
-
 server <- function(input, output) {
   
   
   output$pm25_map <- renderLeaflet({
-    
-    this.pm25.name <- "PM25_3_16"
-    
-    in.pal <- "ovr"
-    
-    pm25.pal <- palFromLayer(this.pm25.name, style = in.pal, raster = master.raster)
     
     dashMap(this.pm25.name, pm25.pal, 
             raster = master.raster, area = large.area, 
@@ -262,84 +257,11 @@ server <- function(input, output) {
             VarName = "PM25")
   })
   
-  observe({
-    if (input$sidebar == "pm25") {
-      in.date <- input$pm25_dt
-      this.pm25.name <- getLayerName(in.date, "PM25")
-      
-      in.pal <- input$pm25_rad
-      
-      pm25.pal <- palFromLayer(this.pm25.name, style = in.pal, raster = master.raster)
-      
-      sliderProxy("pm25_map", this.pm25.name, pm25.pal, raster = master.raster)
-    }
-  })
-  
-  observeEvent(input$pm25_map_shape_click, {
-    if(input$sidebar == "pm25") { #Optimize Dashboard speed by not observing outside of tab
-      if(input$pm25_chi_zoom == "lac") {
-        
-        click <- input$pm25_map_shape_click
-        
-        zoomMap("pm25_map", click, large.area)
-      }
-      else if (input$pm25_chi_zoom == "chi") {
-        click <- input$pm25_map_shape_click
-        
-        zoomChiMap("pm25_map", click, chi.map)
-      }
-    }
-  })
-  
-  observeEvent(input$pm25_chi_zoom, {
-    if(input$sidebar == "pm25") {
-      if(input$pm25_chi_zoom == "chi") {
-        chiView("pm25_map", chi.map, EPApoints = epa.points, VarName = "PM25") 
-      }
-      else if (input$pm25_chi_zoom == "lac") {
-        lacView("pm25_map", large.area, EPApoints = epa.points, VarName = "PM25")
-      }
-    }
-  })
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
+mypalette <- colorBin( palette="YlOrBr", domain=quakes$mag, na.color="transparent")
 
 server <- function(input, output) {
-  
-  
-  ##### HOME START #####
-  
- data_input<- reactive({county.pm25$`Daily Mean PM2.5 Concentration`})
- labels_input<- reactive({county.pm25$Date})
 
-  output$homemap <- renderLeaflet({
-    leaflet(counties) %>%
-      addProviderTiles(provider = "OpenStreetMap.HOT") %>%
-      setView(lat = "41.97736", lng = "-87.62255", zoom = 7) %>% 
-      leaflet::addPolygons(weight = 1,
-                           color = "gray",
-                           layerId = counties$FIPS,
-                           fillOpacity = 0.2,
-                           label = counties$COUNTYNAME,
-                           highlight = highlightOptions(
-                             weight = 2,
-                             color = "#666",
-                             fillOpacity = 0.7,
-                             bringToFront = TRUE))
-  })
-  
   ##### HOME END #####
   
   output$pm25_map <- renderLeaflet({
@@ -355,5 +277,5 @@ server <- function(input, output) {
   })
 }
 
-shinyApp(ui, server) 
+shinyApp(ui, server)
 
