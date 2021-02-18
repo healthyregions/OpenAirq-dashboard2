@@ -9,7 +9,6 @@ library(lubridate)
 library(tidyverse)
 
 
-
 ##### DATA LOADING START #####
 source("Functions.R")
 
@@ -50,9 +49,6 @@ aqi.source <- descriptions$Source[descriptions["Variable"] == "AQI"]
 
 ##### COVID START #####
 covid.tabname <- "covid"
-covid.name <- "Coronavirus Disease (COVID-19)"
-covid.description <- descriptions$Description[descriptions["Variable"] == "COVID"]
-covid.source <- descriptions$Source[descriptions["Variable"] == "COVID"]
 ##### COVID END #####
 
 ##### VARIABLE END #####
@@ -235,7 +231,12 @@ ui <- dashboardPage(
       
       generateOneTimeTab(aqi.tabname, aqi.name, aqi.description, aqi.source),
       
-      generateTab(covid.tabname, covid.name, covid.description, covid.source),
+      tabItem(tabName = covid.tabname,
+                fluidRow(
+                  box(width = 10,
+                      leafletOutput("covid_map", height = mapheight))
+                )),
+
       
 
       ##### DOWNLOADS START #####

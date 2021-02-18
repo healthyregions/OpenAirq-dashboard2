@@ -29,23 +29,3 @@ generateOneTimeTab <- function(tabname, variablename, variabledescription, sourc
 }
 
 
-### Create Tab Page for Variables with One Time COVID Data
-generateTab <- function(tabname, variablename, variabledescription, sourcedescription,
-                                mapheight = 500) {
-  tabItem(tabName = tabname,
-          fluidRow(
-            box(width = 4,
-                tabsetPanel(
-                  tabPanel(title = "Description",
-                           h3(variablename),
-                           p(variabledescription)),
-                  tabPanel(title = "Source",
-                           h4("Data Source"),
-                           p(sourcedescription))
-                  )),
-            box(width = 8,
-                leafletOutput(paste(tabname, "map", sep = "_"), height = mapheight))
-          ))
-}
-
-
