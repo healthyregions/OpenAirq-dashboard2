@@ -233,7 +233,7 @@ ui <- dashboardPage(
       
       tabItem(tabName = covid.tabname,
                 fluidRow(
-                  box(width = 10,
+                  box(width = 12,
                       leafletOutput("covid_map", height = mapheight))
                 )),
 
@@ -245,12 +245,8 @@ ui <- dashboardPage(
       
     )))
 
-pm25.bins<- c(0,12,35.4, 55.4, 150.4, 250.4, 500)
-pm25.palette<- c('#00FF00','#FFFF00','#FFA500','#FF0000','#99004C','#800000')
-pm25.legend.labels<- c("Good", "Moderate", "USG", 
-                       "Unhealthy", "Very Unhealthy", "Harzardous")
-pm25palette <- colorBin(palette= pm25.palette, bins = pm25.bins, na.color="transparent")
 
+pm25palette <- colorBin(palette="YlOrRd" , domain = pm25$PM25_20210210, na.color="transparent")
 
 aqi.bins<- c(0, 50, 100, 150, 200, 300, 500)
 aqi.palette<- c('#00FF00','#FFFF00','#FFA500','#FF0000','#99004C','#800000')
@@ -259,6 +255,15 @@ aqi.legend.labels<- c("Good", "Moderate", "USG",
 aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="transparent")
 
 covidpalette <- colorBin(palette="YlOrRd" , domain = covid$cases_weekly_2020.12.20, na.color="transparent")
+
+end_date<- Sys.Date()
+start_date<- end_date - 6
+daterange<- paste("The week of", start_date, "to", end_date, sep = " ")
+
+labels_covid <- sprintf(
+  covid$zip
+) %>% lapply(htmltools::HTML)
+
 server <- function(input, output) {
 
   ##### HOME END #####
@@ -284,10 +289,8 @@ server <- function(input, output) {
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
+      addControl(paste0(daterange), position = "bottomleft")%>%
       addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210210,
-                labFormat = function(type, cuts, p) {
-                  paste0(pm25.legend.labels)
-                },
                 title = "PM2.5", opacity = 1)
       
   })
@@ -312,6 +315,7 @@ server <- function(input, output) {
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
+      addControl(paste0(daterange), position = "bottomleft")%>%
       addLegend("bottomright", pal = aqipalette, values = aqi$AQI_20210210,
                 labFormat = function(type, cuts, p) {
                   paste0(aqi.legend.labels)
@@ -329,9 +333,16 @@ server <- function(input, output) {
                   stroke = FALSE,
                   weight = 2,
                   opacity = 1,
-                  dashArray = "3")%>%
+                  dashArray = "3",
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal", 
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))%>%
+      addControl(paste0(daterange), position = "bottomleft")%>%
       addLegend("bottomright", pal = covidpalette, values = covid$cases_weekly_2020.12.20,
-                title = "COVID Weekly Confirmed Cases", opacity = 1)
+                title = "COVID Cases", opacity = 1)
     
   })
   

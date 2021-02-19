@@ -23,7 +23,6 @@ generateOneTimeTab <- function(tabname, variablename, variabledescription, sourc
             ),
             box(width = 8,
                 leafletOutput(paste(tabname, "map", sep = "_"), height = mapheight)
-                
             )
           ))
 }
