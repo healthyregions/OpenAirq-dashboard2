@@ -19,7 +19,7 @@ descriptions <- read.csv("Data/Description.csv", stringsAsFactors = F)
 
 pm25<- read.csv("Data/PM25_Weekly/pm25.csv")
 aqi<- read.csv("Data/PM25_Weekly/aqi.csv")
-covid.raw<- read.csv("Data/covid-weekly/docs/example_output.csv")
+covid.raw<- read.csv("Data/CovidWeekly.csv")
 chi.community.map <- st_read("Data/Chicago")
 chi.admin.map<- st_read("Data/ZipcodeBoundary")
 covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
@@ -246,7 +246,15 @@ ui <- dashboardPage(
     )))
 
 
-pm25palette <- colorBin(palette="YlOrRd" , domain = pm25$PM25_20210210, na.color="transparent")
+## Specify Mapping Details
+
+end_date<- Sys.Date()
+start_date<- end_date - 6
+daterange<- paste("The week of", start_date, "to", end_date, sep = " ")
+
+
+
+pm25palette <- colorBin(palette="YlOrRd" , domain = pm25$PM25_20210222, na.color="transparent")
 
 aqi.bins<- c(0, 50, 100, 150, 200, 300, 500)
 aqi.palette<- c('#00FF00','#FFFF00','#FFA500','#FF0000','#99004C','#800000')
@@ -254,11 +262,9 @@ aqi.legend.labels<- c("Good", "Moderate", "USG",
                        "Unhealthy", "Very Unhealthy", "Harzardous")
 aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="transparent")
 
-covidpalette <- colorBin(palette="YlOrRd" , domain = covid$cases_weekly_2020.12.20, na.color="transparent")
+covidpalette <- colorBin(palette="YlOrRd" , domain = covid$COVID_Week_20210207, na.color="transparent")
 
-end_date<- Sys.Date()
-start_date<- end_date - 6
-daterange<- paste("The week of", start_date, "to", end_date, sep = " ")
+
 
 labels_covid <- sprintf(
   covid$zip
@@ -282,15 +288,15 @@ server <- function(input, output) {
                     weight = 2, 
                     color = "gray", 
                     fillOpacity = 0.05))%>%
-      addCircles(data = pm25$PM25_20210210,
+      addCircles(data = pm25$PM25_20210222,
                  lng = pm25$longitude, 
                  lat = pm25$latitude, 
-                 color = pm25palette(pm25$PM25_20210210), 
+                 color = pm25palette(pm25$PM25_20210222), 
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
       addControl(paste0(daterange), position = "bottomleft")%>%
-      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210210,
+      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210222,
                 title = "PM2.5", opacity = 1)
       
   })
@@ -308,15 +314,15 @@ server <- function(input, output) {
                     weight = 2, 
                     color = "gray", 
                     fillOpacity = 0.05))%>%
-      addCircles(data = aqi$AQI_20210210,
+      addCircles(data = aqi$AQI_20210222,
                  lng = aqi$longitude, 
                  lat = aqi$latitude, 
-                 color = aqipalette(aqi$AQI_20210210), 
+                 color = aqipalette(aqi$AQI_20210222), 
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
       addControl(paste0(daterange), position = "bottomleft")%>%
-      addLegend("bottomright", pal = aqipalette, values = aqi$AQI_20210210,
+      addLegend("bottomright", pal = aqipalette, values = aqi$AQI_20210222,
                 labFormat = function(type, cuts, p) {
                   paste0(aqi.legend.labels)
                 },
@@ -327,7 +333,7 @@ server <- function(input, output) {
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
       addPolygons(data = covid, 
-                  fillColor = covidpalette(covid$cases_weekly_2020.12.20),
+                  fillColor = covidpalette(covid$COVID_Week_20210207),
                   fillOpacity  = 0.7, 
                   color = "white",
                   stroke = FALSE,
@@ -340,8 +346,8 @@ server <- function(input, output) {
                                  padding = "3px 8px"),
                     textsize = "15px",
                     direction = "auto"))%>%
-      addControl(paste0(daterange), position = "bottomleft")%>%
-      addLegend("bottomright", pal = covidpalette, values = covid$cases_weekly_2020.12.20,
+      addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210207,
                 title = "COVID Cases", opacity = 1)
     
   })

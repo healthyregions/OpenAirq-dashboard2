@@ -92,13 +92,13 @@ covid_raw<- covid_chicago%>%
   filter(Date >= '2020-12-01')%>%
   arrange(desc(Date))%>%
   dplyr::select(zip_code, Date, cases_weekly)%>%
-  pivot_wider(names_from = 'Date', values_from = 'cases_weekly')
+  pivot_wider(names_from = 'Date', values_from = 'cases_weekly')%>%
+  rename(zip = zip_code)
 
 zipcode<- covid_raw[1]
 covid<- covid_raw[2:ncol(covid_raw)]
 colnames(covid)<- gsub("-", "", colnames(covid))
 colnames(covid)<- paste0('COVID_Week_', colnames(covid))
 covid<- cbind(zipcode, covid)
-
 
 write.csv(covid, "Data/CovidWeekly.csv")
