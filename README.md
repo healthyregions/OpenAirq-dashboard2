@@ -6,16 +6,14 @@ This repo houses the private, city-facing dashboard that integrates AirQ indicat
 
 - Weekly update of PM 2.5 and AQI sensors throughout Chicagoland area (visualized as graduated color map)
 
-Datasets| #1 | #2 | #3 | #4 | #5 | #6 | #7 | #8 | #9 | #10 | #11
+| #1 | #2 | #3 | #4 | #5 | #6 | #7 | #8 | #9 | #10 | #11
 --- | --- | --- | --- |--- |--- |--- |--- |--- |--- |--- |---
-PM2.5 | |  |  |  | |  |  |  |  | | 
-AQI| |  |  |  | |  |  |  |  | | 
 
 - Weekly update of 7-day new hosptalization for COVID (ex) by zip code in Chicago
 
-Datasets| #1 | #2 | #3 | #4 | #5 | #6 | #7 | #8 | #9 | #10 | #11
+| #1 | #2 | #3 | #4 | #5 | #6 | #7 | #8 | #9 | #10 | #11
 --- | --- | --- | --- |--- |--- |--- |--- |--- |--- |--- |---
-COVID-Weekly | |  |  |  | |  |  |  |  | | 
+
 
 
 - Historical weekly average for PM2.5 by 1km^2 grid cell for Chicagoland region (using 5-year model average), for that week
