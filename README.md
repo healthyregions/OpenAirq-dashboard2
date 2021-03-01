@@ -6,8 +6,9 @@ This repo houses the private, city-facing dashboard that integrates AirQ indicat
 
 - Weekly update of PM 2.5 and AQI sensors throughout Chicagoland area (visualized as graduated color map)
 ![pm25](./OpenAirq-covid/Figures/pm25.png)
-
+![aqi](./OpenAirq-covid/Figures/aqi.png)
 - Weekly update of 7-day new confirmed cases for COVID (ex) by zip code in Chicago
+![COVID](./OpenAirq-covid/Figures/COVID.png)
 - Historical weekly average for PM2.5 by 1km^2 grid cell for Chicagoland region (using 5-year model average), for that week
 - Social Vulnerability Index (5-year average) by tract? in Chicago
 - Asthma Visits (using Chicago Health Atlas) by zip code in Chicago
