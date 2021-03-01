@@ -5,22 +5,12 @@
 This repo houses the private, city-facing dashboard that integrates AirQ indicators and weekly COVID updates:
 
 - Weekly update of PM 2.5 and AQI sensors throughout Chicagoland area (visualized as graduated color map)
-
-| #1 | #2 | #3 | #4 | #5 | #6 | #7 | #8 | #9 | #10 | #11
---- | --- | --- | --- |--- |--- |--- |--- |--- |--- |--- |---
-
-- Weekly update of 7-day new hosptalization for COVID (ex) by zip code in Chicago
-
-| #1 | #2 | #3 | #4 | #5 | #6 | #7 | #8 | #9 | #10 | #11
---- | --- | --- | --- |--- |--- |--- |--- |--- |--- |--- |---
-
-
-
+- Weekly update of 7-day new confirmed cases for COVID (ex) by zip code in Chicago
 - Historical weekly average for PM2.5 by 1km^2 grid cell for Chicagoland region (using 5-year model average), for that week
 - Social Vulnerability Index (5-year average) by tract? in Chicago
 - Asthma Visits (using Chicago Health Atlas) by zip code in Chicago
 
-
+[Dashborad Prototype](App.R) was created using the data files in [the Data folder](Data/README.md) and [function](OpenAirq-covid/Functions.R). 
 
 ### Decisions to be made
 - Map 2 variables side by side, or select 1 map at a time? or use tab for each map?
