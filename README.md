@@ -13,7 +13,7 @@ This repo houses the private, city-facing dashboard that integrates AirQ indicat
 - Social Vulnerability Index (5-year average) by tract? in Chicago
 - Asthma Visits (using Chicago Health Atlas) by zip code in Chicago
 
-[Dashborad Prototype](App.R) was created using the data files in data folder and [function](OpenAirq-covid/Functions.R). Detailed description of the data files and how the maps are created can be found in [the Data folder](./OpenAirq-covid/Data/README.md).
+[Dashborad Prototype](OpenAirq-covid/App.R) was created using the data files in data folder and [function](OpenAirq-covid/Functions.R). Detailed description of the data files and how the maps are created can be found in [the Data folder](./OpenAirq-covid/Data/README.md).
 
 ### Decisions to be made
 - Map 2 variables side by side, or select 1 map at a time? or use tab for each map?
