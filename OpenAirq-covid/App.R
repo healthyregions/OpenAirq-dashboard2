@@ -20,9 +20,12 @@ descriptions <- read.csv("Data/Description.csv", stringsAsFactors = F)
 pm25<- read.csv("Data/PM25_Weekly/pm25.csv")
 aqi<- read.csv("Data/PM25_Weekly/aqi.csv")
 covid.raw<- read.csv("Data/CovidWeekly.csv")
+asthma.raw<- read.csv("Data/Asthma2017.csv")
+asthma.raw$zip<- as.character(asthma.raw$zip)
 chi.community.map <- st_read("Data/Chicago")
 chi.admin.map<- st_read("Data/ZipcodeBoundary")
 covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
+asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
 
 ##### DATA LOADING END ##### 
 
@@ -50,6 +53,10 @@ aqi.source <- descriptions$Source[descriptions["Variable"] == "AQI"]
 ##### COVID START #####
 covid.tabname <- "covid"
 ##### COVID END #####
+
+##### ASTHMA START #####
+asthma.tabname <- "asthma"
+##### ASTHMA END #####
 
 ##### VARIABLE END #####
 
@@ -208,6 +215,7 @@ ui <- dashboardPage(
                                         menuSubItem("PM2.5", tabName = "pm25"),
                                         menuSubItem("AQI", tabName = "aqi")),
                                menuItem("COVID Data", tabName = "covid", icon = icon("medkit")),
+                               menuItem("Asthma Data", tabName = "asthma", icon = icon("lungs")),
                                menuItem("Downloads", icon = icon("download"), tabName = "downloads"))
   ),
   
@@ -237,7 +245,19 @@ ui <- dashboardPage(
                       leafletOutput("covid_map", height = mapheight))
                 )),
 
-      
+      tabItem(tabName = asthma.tabname,
+              fluidRow(
+                box(width = 12,
+                    leafletOutput("asthma_map", height = mapheight)),
+              ),
+              fluidRow(
+                box(width = 3,
+                    radioGroupButtons(inputId = paste(asthma.tabname, "source", sep = "_"),
+                                      "Set Age", 
+                                      c("0-18" = "018", 
+                                        "65+" = "65"),
+                                      selected = "65"))
+              )),
 
       ##### DOWNLOADS START #####
       tabItem(tabName = "downloads")
@@ -264,6 +284,9 @@ aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="transpar
 
 covidpalette <- colorBin(palette="YlOrRd" , domain = covid$COVID_Week_20210207, na.color="transparent")
 
+asthmapalette <- colorBin(palette="YlOrRd" ,
+                          domain = min(min(asthma$rate0_18, na.rm=T), min(asthma$rate65, na.rm=T)):max(max(asthma$rate0_18, na.rm=T), max(asthma$rate65, na.rm=T)),
+                          na.color="transparent")
 
 
 labels_covid <- sprintf(
@@ -350,6 +373,70 @@ server <- function(input, output) {
       addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210207,
                 title = "COVID Cases", opacity = 1)
     
+  })
+  output$asthma_map <- renderLeaflet({
+    leaflet() %>%
+      addProviderTiles("CartoDB.Positron")%>%
+      addPolygons(data = asthma, 
+                  fillColor = asthmapalette(asthma$rate65),
+                  fillOpacity  = 0.7, 
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal", 
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))%>%
+      addControl(paste0("From 2017"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = asthmapalette, values = asthma$rate65,
+                title = "Asthma ED Visits", opacity = 1)
+    
+  })
+  observeEvent(input$asthma_source, {
+    if(input$sidebar == "asthma") { #Optimize Dashboard speed by not observing outside of tab
+      if(input$asthma_source == "018") {
+        fillColor <- asthmapalette(asthma$rate0_18)
+        leafletProxy("asthma_map")%>%
+          clearShapes()%>%
+          addPolygons(data = asthma, 
+                      fillColor = asthmapalette(asthma$rate0_18),
+                      fillOpacity  = 0.7, 
+                      color = "white",
+                      stroke = FALSE,
+                      weight = 2,
+                      opacity = 1,
+                      dashArray = "3",
+                      label = labels_covid,
+                      labelOptions = labelOptions(
+                        style = list("font-weight" = "normal", 
+                                     padding = "3px 8px"),
+                        textsize = "15px",
+                        direction = "auto"))
+      }
+      else if (input$asthma_source == "65") {
+        fillColor <- asthmapalette(asthma$rate65)
+        leafletProxy("asthma_map")%>%
+          clearShapes()%>%
+          addPolygons(data = asthma, 
+                      fillColor = asthmapalette(asthma$rate65),
+                      fillOpacity  = 0.7, 
+                      color = "white",
+                      stroke = FALSE,
+                      weight = 2,
+                      opacity = 1,
+                      dashArray = "3",
+                      label = labels_covid,
+                      labelOptions = labelOptions(
+                        style = list("font-weight" = "normal", 
+                                     padding = "3px 8px"),
+                        textsize = "15px",
+                        direction = "auto"))
+      }
+    }
   })
   
 }
