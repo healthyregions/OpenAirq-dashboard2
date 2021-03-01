@@ -12,6 +12,7 @@ This repo houses the private, city-facing dashboard that integrates AirQ indicat
 - Historical weekly average for PM2.5 by 1km^2 grid cell for Chicagoland region (using 5-year model average), for that week
 - Social Vulnerability Index (5-year average) by tract? in Chicago
 - Asthma Visits (using Chicago Health Atlas) by zip code in Chicago
+![asthma](./OpenAirq-covid/Figures/asthma.png)
 
 [Dashborad Prototype](OpenAirq-covid/App.R) was created using the data files in data folder and [function](OpenAirq-covid/Functions.R). Detailed description of the data files and how the maps are created can be found in [the Data folder](./OpenAirq-covid/Data/README.md).
 
