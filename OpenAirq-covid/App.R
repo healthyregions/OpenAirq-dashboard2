@@ -234,17 +234,27 @@ ui <- dashboardPage(
       ##### ABOUT END #####
       
       ##### PM2.5 START #####
-    
+      
       generateOneTimeTab(pm25.tabname, pm25.name, pm25.description, pm25.source),
       
       generateOneTimeTab(aqi.tabname, aqi.name, aqi.description, aqi.source),
       
       tabItem(tabName = covid.tabname,
-                fluidRow(
-                  box(width = 12,
-                      leafletOutput("covid_map", height = mapheight))
-                )),
+              fluidRow(
+                box(width = 12,
+                    sliderInput(paste(covid.tabname, "dt", sep = "_"), "Select week:",
+                                min = strptime("2020/12/06","%Y/%m/%d"), 
+                                max = strptime("2021/02/07","%Y/%m/%d"),
+                                value = strptime("2021/02/07","%Y/%m/%d"),
+                                timeFormat = "%Y/%m/%d",
+                                step = as.difftime(7, units = "days"),
+                                animate = animationOptions(interval = 2000))),
+              fluidRow(
+                box(width = 12,
+                    leafletOutput("covid_map", height = mapheight)))
 
+              )),
+      
       tabItem(tabName = asthma.tabname,
               fluidRow(
                 box(width = 12,
@@ -258,7 +268,7 @@ ui <- dashboardPage(
                                         "65+" = "65"),
                                       selected = "65"))
               )),
-
+      
       ##### DOWNLOADS START #####
       tabItem(tabName = "downloads")
       ##### DOWNLOADS END #####
@@ -270,19 +280,21 @@ ui <- dashboardPage(
 
 end_date<- Sys.Date()
 start_date<- end_date - 6
-daterange<- paste("The week of", start_date, "to", end_date, sep = " ")
+daterange<- paste("The week of", start_date, "to", end_date, sep = " ") # deprecated
 
 
+# unlist seems hacky; let me know
+pm25palette <- colorBin(palette="YlOrRd" , domain = unlist(pm25[,6:83]), na.color="transparent")
 
-pm25palette <- colorBin(palette="YlOrRd" , domain = pm25$PM25_20210222, na.color="transparent")
 
 aqi.bins<- c(0, 50, 100, 150, 200, 300, 500)
 aqi.palette<- c('#00FF00','#FFFF00','#FFA500','#FF0000','#99004C','#800000')
 aqi.legend.labels<- c("Good", "Moderate", "USG", 
-                       "Unhealthy", "Very Unhealthy", "Harzardous")
+                      "Unhealthy", "Very Unhealthy", "Harzardous")
+
 aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="transparent")
 
-covidpalette <- colorBin(palette="YlOrRd" , domain = covid$COVID_Week_20210207, na.color="transparent")
+covidpalette <- colorBin(palette="YlOrRd" , domain = c(sapply(6:15, function(z) covid[,z][[1]])), na.color="transparent")
 
 asthmapalette <- colorBin(palette="YlOrRd" ,
                           domain = min(min(asthma$rate0_18, na.rm=T), min(asthma$rate65, na.rm=T)):max(max(asthma$rate0_18, na.rm=T), max(asthma$rate65, na.rm=T)),
@@ -294,7 +306,7 @@ labels_covid <- sprintf(
 ) %>% lapply(htmltools::HTML)
 
 server <- function(input, output) {
-
+  
   ##### HOME END #####
   
   output$pm25_map <- renderLeaflet({
@@ -318,10 +330,40 @@ server <- function(input, output) {
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
-      addControl(paste0(daterange), position = "bottomleft")%>%
+      addControl(format(input$pm25_dt, "%Y-%m-%d"), position = "bottomleft")%>%
       addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210222,
                 title = "PM2.5", opacity = 1)
-      
+    
+  })
+  observeEvent(input$pm25_dt, {
+    if (input$sidebar == "pm25") { #Optimize Dashboard speed by not observing outside of tab
+      in.col <- pm25[, which(colnames(pm25) == format(input$pm25_dt, "PM25_%Y%m%d"))]
+      leafletProxy("pm25_map")%>%
+        clearControls()%>%
+        clearShapes()%>%
+        addProviderTiles("CartoDB.Positron")%>%
+        addPolygons(data = large.area, 
+                    color = "darkslategray",
+                    fillOpacity  = 0.00, 
+                    stroke = TRUE,
+                    opacity = 1,
+                    layerId = large.area$FIPS,
+                    weight = 1,
+                    highlight = highlightOptions(
+                      weight = 2, 
+                      color = "gray", 
+                      fillOpacity = 0.05))%>%
+        addCircles(data = in.col,
+                   lng = pm25$longitude, 
+                   lat = pm25$latitude, 
+                   color = pm25palette(in.col), 
+                   fillOpacity = 0.5, 
+                   radius= 5000, 
+                   stroke=FALSE)%>%
+        addControl(format(input$pm25_dt, "%Y-%m-%d"), position = "bottomleft")%>%
+        addLegend("bottomright", pal = pm25palette, values = in.col,
+                  title = "PM2.5", opacity = 1)
+    }
   })
   output$aqi_map <- renderLeaflet({
     leaflet() %>%
@@ -344,13 +386,46 @@ server <- function(input, output) {
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
-      addControl(paste0(daterange), position = "bottomleft")%>%
+      addControl(format(input$pm25_dt, "%Y-%m-%d"), position = "bottomleft")%>%
       addLegend("bottomright", pal = aqipalette, values = aqi$AQI_20210222,
                 labFormat = function(type, cuts, p) {
                   paste0(aqi.legend.labels)
                 },
                 title = "AQI", opacity = 1)
     
+  })
+  observeEvent(input$aqi_dt, {
+    if (input$sidebar == "aqi") { #Optimize Dashboard speed by not observing outside of tab
+      in.col <- aqi[, which(colnames(aqi) == format(input$aqi_dt, "AQI_%Y%m%d"))]
+      leafletProxy("aqi_map")%>%
+        clearControls()%>%
+        clearShapes()%>%
+        addProviderTiles("CartoDB.Positron")%>%
+        addPolygons(data = large.area, 
+                    color = "darkslategray",
+                    fillOpacity  = 0.00, 
+                    stroke = TRUE,
+                    opacity = 1,
+                    layerId = large.area$FIPS,
+                    weight = 1,
+                    highlight = highlightOptions(
+                      weight = 2, 
+                      color = "gray", 
+                      fillOpacity = 0.05))%>%
+        addCircles(data = in.col,
+                   lng = aqi$longitude, 
+                   lat = aqi$latitude, 
+                   color = aqipalette(in.col), 
+                   fillOpacity = 0.5, 
+                   radius= 5000, 
+                   stroke=FALSE)%>%
+        addControl(format(input$aqi_dt, "%Y-%m-%d"), position = "bottomleft")%>%
+        addLegend("bottomright", pal = aqipalette, values = in.col,
+                  labFormat = function(type, cuts, p) {
+                    paste0(aqi.legend.labels)
+                  },
+                  title = "AQI", opacity = 1)
+    }
   })
   output$covid_map <- renderLeaflet({
     leaflet() %>%
@@ -374,6 +449,33 @@ server <- function(input, output) {
                 title = "COVID Cases", opacity = 1)
     
   })
+  observeEvent(input$covid_dt, {
+    if (input$sidebar == "covid") { #Optimize Dashboard speed by not observing outside of tab
+      # can someone explain why integer indexing fetches the column and geometry??
+      in.col <- covid[, which(colnames(covid) == format(input$covid_dt, "COVID_Week_%Y%m%d"))][[1]]
+      leafletProxy("covid_map")%>%
+        clearControls()%>%
+        clearShapes()%>%
+        addPolygons(data = covid, 
+                    fillColor = covidpalette(in.col),
+                    fillOpacity  = 0.7, 
+                    color = "white",
+                    stroke = FALSE,
+                    weight = 2,
+                    opacity = 1,
+                    dashArray = "3",
+                    label = labels_covid,
+                    labelOptions = labelOptions(
+                      style = list("font-weight" = "normal", 
+                                   padding = "3px 8px"),
+                      textsize = "15px",
+                      direction = "auto"))%>%
+        addControl(paste0("From ", format(input$covid_dt, "%Y-%m-%d"), " to ", format(input$covid_dt + days(6), "%Y-%m-%d")),
+                   position = "bottomleft")%>%
+        addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210207,
+                  title = "COVID Cases", opacity = 1)
+    }
+  })
   output$asthma_map <- renderLeaflet({
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
@@ -393,13 +495,12 @@ server <- function(input, output) {
                     direction = "auto"))%>%
       addControl(paste0("From 2017"), position = "bottomleft")%>%
       addLegend("bottomright", pal = asthmapalette, values = asthma$rate65,
-                title = "Asthma ED Visits", opacity = 1)
+                title = "Asthma ED Visits / 10,000", opacity = 1)
     
   })
   observeEvent(input$asthma_source, {
     if(input$sidebar == "asthma") { #Optimize Dashboard speed by not observing outside of tab
       if(input$asthma_source == "018") {
-        fillColor <- asthmapalette(asthma$rate0_18)
         leafletProxy("asthma_map")%>%
           clearShapes()%>%
           addPolygons(data = asthma, 
@@ -418,7 +519,6 @@ server <- function(input, output) {
                         direction = "auto"))
       }
       else if (input$asthma_source == "65") {
-        fillColor <- asthmapalette(asthma$rate65)
         leafletProxy("asthma_map")%>%
           clearShapes()%>%
           addPolygons(data = asthma, 

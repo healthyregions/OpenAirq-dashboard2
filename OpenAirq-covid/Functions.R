@@ -6,6 +6,16 @@ generateOneTimeTab <- function(tabname, variablename, variabledescription, sourc
                                mapviewselected = "lac", mapheight = 500) {
   tabItem(tabName = tabname,
           fluidRow(
+            box(width = 12,
+                sliderInput(inputId = paste(tabname, "dt", sep = "_"), "Select day:",
+                            min = strptime("2020/12/07","%Y/%m/%d"), 
+                            max = strptime("2021/02/22","%Y/%m/%d"),
+                            value = strptime("2021/02/22","%Y/%m/%d"),
+                            timeFormat = "%Y/%m/%d",
+                            step = as.difftime(1, units = "days"),
+                            animate = animationOptions(interval = 2000))) # if animation is desired here, this time is probably too long
+          ),
+          fluidRow(
             box(width = 4,
                 tabsetPanel(
                   tabPanel(title = "Description",
