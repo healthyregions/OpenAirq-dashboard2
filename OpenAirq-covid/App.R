@@ -446,7 +446,7 @@ server <- function(input, output) {
                     direction = "auto"))%>%
       addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
       addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210207,
-                title = "COVID Cases", opacity = 1)
+                title = "COVID Cases / 100,000", opacity = 1)
     
   })
   observeEvent(input$covid_dt, {
@@ -473,7 +473,7 @@ server <- function(input, output) {
         addControl(paste0("From ", format(input$covid_dt, "%Y-%m-%d"), " to ", format(input$covid_dt + days(6), "%Y-%m-%d")),
                    position = "bottomleft")%>%
         addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210207,
-                  title = "COVID Cases", opacity = 1)
+                  title = "COVID Cases / 100,000", opacity = 1)
     }
   })
   output$asthma_map <- renderLeaflet({

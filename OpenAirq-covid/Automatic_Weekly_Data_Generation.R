@@ -79,11 +79,7 @@ write.csv(aqi, "Data/PM25_Weekly/aqi.csv")
 
 
 ### Scrape COVID data from Chicago data Portal
-covid_chicago <- read.socrata(
-  "https://data.cityofchicago.org/resource/yhhz-zm2v.json",
-  app_token = "OVSv6CZy61r3auvbvtsc8Kk6a",
-  email     = "shuaiyuan4@gmail.com",
-  password  = "Ys199569!")
+covid_chicago <- read.socrata("https://data.cityofchicago.org/resource/yhhz-zm2v.json")
 
 ### Calculate 7-day average total case
 ### Can get hospitality rate as well
@@ -91,8 +87,8 @@ covid_raw<- covid_chicago%>%
   rename(Date = week_start)%>%
   filter(Date >= '2020-12-01')%>%
   arrange(desc(Date))%>%
-  dplyr::select(zip_code, Date, cases_weekly)%>%
-  pivot_wider(names_from = 'Date', values_from = 'cases_weekly')%>%
+  dplyr::select(zip_code, Date, case_rate_weekly)%>%
+  pivot_wider(names_from = 'Date', values_from = 'case_rate_weekly')%>%
   rename(zip = zip_code)
 
 zipcode<- covid_raw[1]
