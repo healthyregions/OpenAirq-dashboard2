@@ -323,21 +323,22 @@ server <- function(input, output) {
                     weight = 2, 
                     color = "gray", 
                     fillOpacity = 0.05))%>%
-      addCircles(data = pm25$PM25_20210222,
+      addCircles(data = pm25$PM25_20210213,
                  lng = pm25$longitude, 
                  lat = pm25$latitude, 
-                 color = pm25palette(pm25$PM25_20210222), 
+                 color = pm25palette(pm25$PM25_20210213), 
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
-      addControl(format(input$pm25_dt, "%Y-%m-%d"), position = "bottomleft")%>%
-      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210222,
+      addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210213,
                 title = "PM2.5", opacity = 1)
     
   })
   observeEvent(input$pm25_dt, {
     if (input$sidebar == "pm25") { #Optimize Dashboard speed by not observing outside of tab
-      in.col <- pm25[, which(colnames(pm25) == format(input$pm25_dt, "PM25_%Y%m%d"))]
+      in.date <- input$pm25_dt + days(6)
+      in.col <- pm25[, which(colnames(pm25) == format(in.date, "PM25_%Y%m%d"))]
       leafletProxy("pm25_map")%>%
         clearControls()%>%
         clearShapes()%>%
@@ -360,7 +361,7 @@ server <- function(input, output) {
                    fillOpacity = 0.5, 
                    radius= 5000, 
                    stroke=FALSE)%>%
-        addControl(format(input$pm25_dt, "%Y-%m-%d"), position = "bottomleft")%>%
+        addControl(paste0("From ", format(input$pm25_dt, "%Y-%m-%d"), " to ", format(input$pm25_dt + days(6), "%Y-%m-%d")), position = "bottomleft")%>%
         addLegend("bottomright", pal = pm25palette, values = in.col,
                   title = "PM2.5", opacity = 1)
     }
@@ -379,15 +380,15 @@ server <- function(input, output) {
                     weight = 2, 
                     color = "gray", 
                     fillOpacity = 0.05))%>%
-      addCircles(data = aqi$AQI_20210222,
+      addCircles(data = aqi$AQI_20210213,
                  lng = aqi$longitude, 
                  lat = aqi$latitude, 
-                 color = aqipalette(aqi$AQI_20210222), 
+                 color = aqipalette(aqi$AQI_20210213), 
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE)%>%
-      addControl(format(input$pm25_dt, "%Y-%m-%d"), position = "bottomleft")%>%
-      addLegend("bottomright", pal = aqipalette, values = aqi$AQI_20210222,
+      addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = aqipalette, values = aqi$AQI_20210213,
                 labFormat = function(type, cuts, p) {
                   paste0(aqi.legend.labels)
                 },
@@ -396,7 +397,8 @@ server <- function(input, output) {
   })
   observeEvent(input$aqi_dt, {
     if (input$sidebar == "aqi") { #Optimize Dashboard speed by not observing outside of tab
-      in.col <- aqi[, which(colnames(aqi) == format(input$aqi_dt, "AQI_%Y%m%d"))]
+      in.date <- input$aqi_dt + days(6)
+      in.col <- aqi[, which(colnames(aqi) == format(in.date, "AQI_%Y%m%d"))]
       leafletProxy("aqi_map")%>%
         clearControls()%>%
         clearShapes()%>%
@@ -419,7 +421,7 @@ server <- function(input, output) {
                    fillOpacity = 0.5, 
                    radius= 5000, 
                    stroke=FALSE)%>%
-        addControl(format(input$aqi_dt, "%Y-%m-%d"), position = "bottomleft")%>%
+        addControl(paste0("From ", format(input$aqi_dt, "%Y-%m-%d"), " to ", format(input$aqi_dt + days(6), "%Y-%m-%d")), position = "bottomleft")%>%
         addLegend("bottomright", pal = aqipalette, values = in.col,
                   labFormat = function(type, cuts, p) {
                     paste0(aqi.legend.labels)
