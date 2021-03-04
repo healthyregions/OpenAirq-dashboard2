@@ -295,8 +295,6 @@ aqi.legend.labels<- c("Good", "Moderate", "USG",
 
 aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="dimgrey")
 
-unlist(pm25[,6:ncol(pm25)])
-
 # covid.bins <- classIntervals(na.omit(c(sapply(6:15, function(z) covid[,z][[1]]))), 8, style="quantile")$brks # 8 quantile bins
 covid.bins <- classIntervals(na.omit(c(sapply(6:15, function(z) covid[,z][[1]]))), 8, style="fisher")$brks # 8 natural bins
 covidpalette <- colorBin(palette="YlOrRd" , bins=covid.bins, na.color="transparent") # discrete
