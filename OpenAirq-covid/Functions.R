@@ -13,28 +13,40 @@ generateOneTimeTab <- function(tabname, variablename, variabledescription, sourc
                             value = strptime("2021/02/07","%Y/%m/%d"),
                             timeFormat = "%Y/%m/%d",
                             step = as.difftime(7, units = "days"),
-                            animate = animationOptions(interval = 2000))) # if animation is desired here, this time is probably too long
+                            animate = animationOptions(interval = 2000)))
           ),
           fluidRow(
-            box(width = 4,
-                tabsetPanel(
-                  tabPanel(title = "Description",
-                           h3(variablename),
-                           p(variabledescription)),
-                  tabPanel(title = "Source",
-                           h4("Data Source"),
-                           p(sourcedescription))
-                ),
-                radioGroupButtons(inputId = paste(tabname, "chi_zoom", sep = "_"),
-                                  "Set View", 
-                                  c("21 Counties" = "lac", 
-                                    "Chicago" = "chi"),
-                                  selected = mapviewselected)
-            ),
-            box(width = 8,
+            box(width = 12,
                 leafletOutput(paste(tabname, "map", sep = "_"), height = mapheight)
             )
+          ),
+          fluidRow(
+            box(width = 3,
+                radioGroupButtons(inputId = paste(tabname, "source", sep = "_"),
+                                  "Choose Data:", 
+                                  c("AQI" = "aqi", 
+                                    "PM2.5" = "pm25"),
+                                  selected = "pm25"))
           ))
+}
+
+### Converts column to HTML labels; maps NA values to their date of last update
+getLabels <- function(date, dataframe, varname) {
+  col.format <- paste(varname, "%Y%m%d", sep = "_")
+  idx <- which(colnames(dataframe) == format(date, col.format))
+  col <- dataframe[, idx]
+  labels <- sprintf(as.character(round(col, 3)))
+  na.idx <- which(is.na(col))
+  search <- dataframe[na.idx, idx:ncol(dataframe)] # slice of dataframe to search for last update
+  # week is shifted back here, to be consistent with the dataproc
+  # note: max.col doesn't work if there is no last update available; this does not happen currently
+  update <- strptime(names(search)[max.col(!is.na(search), "first")], col.format) - days(6) 
+  update[update == date - days(6)] <- NA # if update == today, no last update exists
+  repl <- paste("NA<br>Last Updated:", # Create HTML strings for last updates
+                 update, 
+                 sep = " ") 
+  labels[na.idx] <- repl
+  labels %>% lapply(htmltools::HTML)
 }
 
 
