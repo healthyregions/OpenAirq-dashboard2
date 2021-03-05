@@ -305,8 +305,9 @@ asthma.bins <- classIntervals(na.omit(c(sapply(6:7, function(z) asthma[,z][[1]])
 asthmapalette <- colorBin(palette="YlOrRd" , bins=asthma.bins, na.color="transparent") # discrete
 # asthmapalette <- colorBin(palette="YlOrRd" , domain = na.omit(c(sapply(6:7, function(z) asthma[,z][[1]]))), na.color="transparent") # continuous
 
+# Getting an error: Error in sprintf(covid$zip) : 'fmt' is not a character vector
 labels_covid <- sprintf(
-  covid$zip
+  as.character(covid$zip)
 ) %>% lapply(htmltools::HTML)
 
 server <- function(input, output) {
