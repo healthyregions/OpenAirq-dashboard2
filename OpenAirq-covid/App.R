@@ -8,6 +8,7 @@ library(sf)
 library(lubridate)
 library(tidyverse)
 library(classInt)
+library(plotly)
 
 
 ##### DATA LOADING START #####
@@ -19,8 +20,16 @@ large.area$COUNTYNAME <- as.character(large.area$COUNTYNAME)
 descriptions <- read.csv("Data/Description.csv", stringsAsFactors = F)
 
 pm25<- read.csv("Data/PM25_Weekly/pm25.csv")
+pm25.means<- data.frame(PM25=apply(na.omit(pm25[, 6:ncol(pm25)]), 2, mean)) # may be worth doing externally
+week.idx<- seq(from=nrow(aqi.means) - 5, to=1, by=-7)
+pm25.trace<- pm25.means$PM25[week.idx] # may be worth doing externally
 aqi<- read.csv("Data/PM25_Weekly/aqi.csv")
+aqi.means<- data.frame(AQI=apply(na.omit(aqi[, 6:ncol(aqi)]), 2, mean)) # may be worth doing externally
+aqi.trace<- aqi.means$AQI[week.idx] # may be worth doing externally
 covid.raw<- read.csv("Data/CovidWeekly.csv")
+# FIXME: +1 is a workaround used to truncate COVID data without respective sensor data
+covid.means<- data.frame(COVID=apply(na.omit(covid.raw[, ncol(covid.raw):(3 + 1)]), 2, mean)) # may be worth doing externally
+covid.trace<- as.numeric(covid.means$COVID)
 asthma.raw<- read.csv("Data/Asthma2017.csv")
 asthma.raw$zip<- as.character(asthma.raw$zip)
 chi.community.map <- st_read("Data/Chicago")
@@ -232,29 +241,31 @@ ui <- dashboardPage(
                 box(width = 12,
                     sliderInput(paste("home", "dt", sep = "_"), "Select week:",
                                 min = strptime("2020/12/06","%Y/%m/%d"), 
-                                max = strptime("2021/02/07","%Y/%m/%d"),
-                                value = strptime("2021/02/07","%Y/%m/%d"),
+                                max = strptime("2021/02/14","%Y/%m/%d"),
+                                value = strptime("2021/02/14","%Y/%m/%d"),
                                 timeFormat = "%Y/%m/%d",
                                 step = as.difftime(7, units = "days"),
                                 animate = animationOptions(interval = 2000)))
               ),
-              fluidRow(box(width = 6,
+              fluidRow(box(width = 3,
                            leafletOutput("home_points", height = mapheight)),
+                       box(width = 3,
+                           leafletOutput("home_choropleth", height = mapheight)),
                        box(width = 6,
-                           leafletOutput("home_choropleth", height = mapheight))),
-              fluidRow(box(width = 6,
+                           plotlyOutput("home_plot", height = mapheight))),
+              fluidRow(box(width = 3,
                            radioGroupButtons(inputId = paste("home_points", "source", sep = "_"),
                                              "Select Data Source:", 
                                              c("AQI" = "aqi", 
                                                "PM2.5" = "pm25"),
                                              selected = "pm25")),
-                       box(width = 3,
+                       box(width = 1,
                            radioGroupButtons(inputId = paste("home_choropleth", "source", sep = "_"),
                                              "Select Data Source:", 
                                              c("COVID" = "covid", 
                                                "Asthma" = "asthma"),
                                              selected = "covid")),
-                       box(width = 3,
+                       box(width = 1,
                            radioGroupButtons(inputId = paste("home_choropleth", "age", sep = "_"),
                                              "Select Age Group (for ED visits):", 
                                              c("0-18" = "018", 
@@ -276,8 +287,8 @@ ui <- dashboardPage(
                 box(width = 12,
                     sliderInput(paste(covid.tabname, "dt", sep = "_"), "Select week:",
                                 min = strptime("2020/12/06","%Y/%m/%d"), 
-                                max = strptime("2021/02/07","%Y/%m/%d"),
-                                value = strptime("2021/02/07","%Y/%m/%d"),
+                                max = strptime("2021/02/14","%Y/%m/%d"),
+                                value = strptime("2021/02/14","%Y/%m/%d"),
                                 timeFormat = "%Y/%m/%d",
                                 step = as.difftime(7, units = "days"),
                                 animate = animationOptions(interval = 2000))),
@@ -313,10 +324,13 @@ ui <- dashboardPage(
 
 ## Specify Mapping Details
 
-end_date<- Sys.Date()
-start_date<- end_date - 6
-daterange<- paste("The week of", start_date, "to", end_date, sep = " ") # deprecated
+start_date<- strptime(names(covid)[ncol(covid) - 1], "COVID_Week_%Y%m%d")
+# deprecated
+# end_date<- Sys.Date()
+# start_date<- end_date - 6
+# daterange<- paste("The week of", start_date, "to", end_date, sep = " ")
 
+# home.view <- list(lat = "41.97736", lng = "-87.62255", zoom = 7)
 
 ### Consider rounding these breaks? ###
 
@@ -347,11 +361,15 @@ labels_covid <- sprintf(
   as.character(covid$zip)
 ) %>% lapply(htmltools::HTML)
 
+
 server <- function(input, output) {
   ##### HOME START #####
+  all.fips <- reactiveValues(fips = c())
+  
   output$home_points <- renderLeaflet({
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
+      # setView(lat = home.view$lat, lng = home.view$lng, zoom = home.view$zoom)%>%
       addPolygons(data = large.area, 
                   color = "darkslategray",
                   fillOpacity  = 0.00, 
@@ -363,10 +381,10 @@ server <- function(input, output) {
                     weight = 2, 
                     color = "gray", 
                     fillOpacity = 0.05))%>%
-      addCircles(data = pm25$PM25_20210213,
+      addCircles(data = pm25$PM25_20210220,
                  lng = pm25$longitude, 
                  lat = pm25$latitude, 
-                 color = pm25palette(pm25$PM25_20210213), 
+                 color = pm25palette(pm25$PM25_20210220), 
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE,
@@ -376,32 +394,87 @@ server <- function(input, output) {
                                 padding = "3px 8px"),
                    textsize = "15px",
                    direction = "auto"))%>%
-      addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
-      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210213,
+      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210220,
                 title = "PM2.5", opacity = 1)
     
   })
   output$home_choropleth <- renderLeaflet({
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
+      # setView(lat = home.view$lat, lng = home.view$lng, zoom = home.view$zoom)%>%
       addPolygons(data = covid, 
-                  fillColor = covidpalette(covid$COVID_Week_20210207),
+                  fillColor = covidpalette(covid$COVID_Week_20210214),
                   fillOpacity  = 0.7, 
                   color = "white",
                   stroke = FALSE,
                   weight = 2,
                   opacity = 1,
                   dashArray = "3",
+                  layerId = covid$zip,
                   label = labels_covid,
                   labelOptions = labelOptions(
                     style = list("font-weight" = "normal", 
                                  padding = "3px 8px"),
                     textsize = "15px",
                     direction = "auto"))%>%
-      addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
-      addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210207,
+      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210214,
                 title = "COVID Cases / 100,000", opacity = 1)
     
+  })
+  output$home_plot <- renderPlotly({
+    dates <- format(strptime(rownames(covid.means), "COVID_Week_%Y%m%d"), "%Y-%m-%d")
+    blues <- c("#033682", "#0356a3", "#0083d9", "#66ccff", "#c9e8ff")
+    
+    p <- plot_ly() %>% config(displayModeBar = F) %>%
+      layout(legend = list(x = .5, y = 100, orientation = "h")) %>%
+      add_trace(x = dates,
+                y = covid.trace,
+                type = "scatter",
+                mode = "lines",
+                opacity = 1,
+                line = list(dash = "solid", color = blues[1]),
+                name = paste("Average", "COVID cases / zip code", sep = " "),
+                text = paste("Average", "COVID cases / zip code", sep = " ")) %>%
+      add_trace(x = dates,
+                y = aqi.trace,
+                type = "scatter",
+                mode = "lines",
+                opacity = 1,
+                line = list(dash = "solid", color = aqipalette(0)),
+                name = paste("Average", "AQI / sensor", sep = " "),
+                text = paste("Average", "AQI / sensor", sep = " ")) %>%
+      add_trace(x = dates,
+                y = pm25.trace,
+                type = "scatter",
+                mode = "lines",
+                opacity = 1,
+                line = list(dash = "solid", color = pm25palette(12)),
+                name = paste("Average", "PM2.5 / sensor", sep = " "),
+                text = paste("Average", "PM2.5 / sensor", sep = " "))
+    
+    if (length(all.fips$fips) > 0) {
+      for (i in 1:length(all.fips$fips)) {
+        p <- p %>%
+          add_trace(x = dates,
+                    # FIXME: +1 is a workaround used to truncate COVID data without respective sensor data
+                    y = as.numeric(covid.raw[which(grepl(all.fips$fips[i], covid.raw$zip)), ncol(covid.raw):(3 + 1)]),
+                    type = "scatter",
+                    mode = "lines",
+                    opacity = 0.8,
+                    line = list(dash = "dot", color = blues[(i %% length(blues)) + 1]),
+                    name = paste("COVID cases in", all.fips$fips[i], sep = " "),
+                    text = paste("COVID cases in", all.fips$fips[i], sep = " "))
+      }
+    }
+    
+    p
+  })
+  observeEvent(input$home_choropleth_shape_click, {
+    if(input$sidebar == "home") {
+      all.fips$fips = unique(c(all.fips$fips, input$home_choropleth_shape_click$id))
+    }
   })
   observe({
     if (input$sidebar == "home") {
@@ -493,6 +566,7 @@ server <- function(input, output) {
                       weight = 2,
                       opacity = 1,
                       dashArray = "3",
+                      layerId = covid$zip,
                       label = labels_covid,
                       labelOptions = labelOptions(
                         style = list("font-weight" = "normal", 
@@ -517,6 +591,7 @@ server <- function(input, output) {
                         weight = 2,
                         opacity = 1,
                         dashArray = "3",
+                        layerId = asthma$zip,
                         label = labels_covid,
                         labelOptions = labelOptions(
                           style = list("font-weight" = "normal", 
@@ -539,6 +614,7 @@ server <- function(input, output) {
                         weight = 2,
                         opacity = 1,
                         dashArray = "3",
+                        layerId = asthma$zip,
                         label = labels_covid,
                         labelOptions = labelOptions(
                           style = list("font-weight" = "normal", 
@@ -569,10 +645,10 @@ server <- function(input, output) {
                     weight = 2, 
                     color = "gray", 
                     fillOpacity = 0.05))%>%
-      addCircles(data = pm25$PM25_20210213,
+      addCircles(data = pm25$PM25_20210220,
                  lng = pm25$longitude, 
                  lat = pm25$latitude, 
-                 color = pm25palette(pm25$PM25_20210213), 
+                 color = pm25palette(pm25$PM25_20210220), 
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE,
@@ -582,8 +658,8 @@ server <- function(input, output) {
                                 padding = "3px 8px"),
                    textsize = "15px",
                    direction = "auto"))%>%
-      addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
-      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210213,
+      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210220,
                 title = "PM2.5", opacity = 1)
     
   })
@@ -670,7 +746,7 @@ server <- function(input, output) {
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
       addPolygons(data = covid, 
-                  fillColor = covidpalette(covid$COVID_Week_20210207),
+                  fillColor = covidpalette(covid$COVID_Week_20210214),
                   fillOpacity  = 0.7, 
                   color = "white",
                   stroke = FALSE,
@@ -683,8 +759,8 @@ server <- function(input, output) {
                                  padding = "3px 8px"),
                     textsize = "15px",
                     direction = "auto"))%>%
-      addControl(paste0("From 2021-02-07 to 2021-02-13"), position = "bottomleft")%>%
-      addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210207,
+      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210214,
                 title = "COVID Cases / 100,000", opacity = 1)
     
   })
