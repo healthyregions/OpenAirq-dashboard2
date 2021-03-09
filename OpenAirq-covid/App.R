@@ -325,17 +325,19 @@ ui <- dashboardPage(
 ## Specify Mapping Details
 
 start_date<- strptime(names(covid)[ncol(covid) - 1], "COVID_Week_%Y%m%d")
+end_date<- strptime(names(covid)[6 + 1], "COVID_Week_%Y%m%d") # +1 is a placeholder to align covid/sensors
+daterange<- paste("From", end_date, "to", end_date + days(6), sep = " ")
+
 # deprecated
 # end_date<- Sys.Date()
 # start_date<- end_date - 6
-# daterange<- paste("The week of", start_date, "to", end_date, sep = " ")
 
 # home.view <- list(lat = "41.97736", lng = "-87.62255", zoom = 7)
 
 ### Consider rounding these breaks? ###
 
-# pm25.bins <- classIntervals(na.omit(unlist(pm25[,6:ncol(pm25)])), 8, style="quantile")$brks # 8 quantile bins
-pm25.bins <- classIntervals(na.omit(unlist(pm25[,6:ncol(pm25)])), 8, style="fisher")$brks # 8 natural bins
+# pm25.bins <- classIntervals(na.omit(unlist(pm25[,6:ncol(pm25)])), 5, style="quantile")$brks # 5 quantile bins
+pm25.bins <- classIntervals(na.omit(unlist(pm25[,6:ncol(pm25)])), 5, style="fisher")$brks # 5 natural bins
 pm25palette <- colorBin(palette="YlOrRd" , bins=pm25.bins, na.color="dimgrey") # discrete
 # pm25palette <- colorBin(palette="YlOrRd" , domain = unlist(pm25[,6:ncol(pm25)]), na.color="dimgrey") # continuous
 
@@ -346,13 +348,13 @@ aqi.legend.labels<- c("Good", "Moderate", "USG",
 
 aqipalette <- colorBin(palette= aqi.palette, bins = aqi.bins, na.color="dimgrey")
 
-# covid.bins <- classIntervals(na.omit(c(sapply(6:15, function(z) covid[,z][[1]]))), 8, style="quantile")$brks # 8 quantile bins
-covid.bins <- classIntervals(na.omit(c(sapply(6:15, function(z) covid[,z][[1]]))), 8, style="fisher")$brks # 8 natural bins
+# covid.bins <- classIntervals(na.omit(c(sapply(6:15, function(z) covid[,z][[1]]))), 5, style="quantile")$brks # 5 quantile bins
+covid.bins <- classIntervals(na.omit(c(sapply(6:15, function(z) covid[,z][[1]]))), 5, style="fisher")$brks # 5 natural bins
 covidpalette <- colorBin(palette="YlOrRd" , bins=covid.bins, na.color="transparent") # discrete
 # covidpalette <- colorBin(palette="YlOrRd" , domain = c(sapply(6:15, function(z) covid[,z][[1]])), na.color="transparent") # continuous
 
-# asthma.bins <- classIntervals(na.omit(c(sapply(6:7, function(z) asthma[,z][[1]]))), 8, style="quantile")$brks # 8 quantile bins
-asthma.bins <- classIntervals(na.omit(c(sapply(6:7, function(z) asthma[,z][[1]]))), 8, style="fisher")$brks # 8 natural bins
+# asthma.bins <- classIntervals(na.omit(c(sapply(6:7, function(z) asthma[,z][[1]]))), 5, style="quantile")$brks # 5 quantile bins
+asthma.bins <- classIntervals(na.omit(c(sapply(6:7, function(z) asthma[,z][[1]]))), 5, style="fisher")$brks # 5 natural bins
 asthmapalette <- colorBin(palette="YlOrRd" , bins=asthma.bins, na.color="transparent") # discrete
 # asthmapalette <- colorBin(palette="YlOrRd" , domain = na.omit(c(sapply(6:7, function(z) asthma[,z][[1]]))), na.color="transparent") # continuous
 
@@ -394,7 +396,7 @@ server <- function(input, output) {
                                 padding = "3px 8px"),
                    textsize = "15px",
                    direction = "auto"))%>%
-      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addControl(paste0(daterange), position = "bottomleft")%>%
       addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210220,
                 title = "PM2.5", opacity = 1)
     
@@ -418,7 +420,7 @@ server <- function(input, output) {
                                  padding = "3px 8px"),
                     textsize = "15px",
                     direction = "auto"))%>%
-      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addControl(paste0(daterange), position = "bottomleft")%>%
       addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210214,
                 title = "COVID Cases / 100,000", opacity = 1)
     
@@ -658,7 +660,7 @@ server <- function(input, output) {
                                 padding = "3px 8px"),
                    textsize = "15px",
                    direction = "auto"))%>%
-      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addControl(paste0(daterange), position = "bottomleft")%>%
       addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210220,
                 title = "PM2.5", opacity = 1)
     
@@ -759,7 +761,7 @@ server <- function(input, output) {
                                  padding = "3px 8px"),
                     textsize = "15px",
                     direction = "auto"))%>%
-      addControl(paste0("From 2021-02-14 to 2021-02-20"), position = "bottomleft")%>%
+      addControl(paste0(daterange), position = "bottomleft")%>%
       addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210214,
                 title = "COVID Cases / 100,000", opacity = 1)
     
