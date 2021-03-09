@@ -257,7 +257,8 @@ ui <- dashboardPage(
                            radioGroupButtons(inputId = paste("home_points", "source", sep = "_"),
                                              "Select Data Source:", 
                                              c("AQI" = "aqi", 
-                                               "PM2.5" = "pm25"),
+                                               "PM2.5" = "pm25",
+                                               "None" = "none"),
                                              selected = "pm25")),
                        box(width = 1,
                            radioGroupButtons(inputId = paste("home_choropleth", "source", sep = "_"),
@@ -485,6 +486,29 @@ server <- function(input, output) {
       # sensor map
       if (input$home_points_source == "aqi") {
         points.col <- aqi[, which(colnames(aqi) == format(points.date, "AQI_%Y%m%d"))]
+        points.render <- function(map) { # define function to render points across maps
+          addCircles(map,
+                     data = points.col,
+                     lng = aqi$longitude, 
+                     lat = aqi$latitude, 
+                     color = aqipalette(points.col), 
+                     fillOpacity = 0.5, 
+                     radius = 5000, 
+                     stroke = FALSE,
+                     label = getLabels(points.date, aqi, "AQI"),
+                     labelOptions = labelOptions(
+                       style = list("font-weight" = "normal", 
+                                    padding = "3px 8px"),
+                       textsize = "15px",
+                       direction = "auto"))
+        }
+        points.legend <- function(map) {
+          addLegend(map, "bottomright", pal = aqipalette, values = points.col,
+                    labFormat = function(type, cuts, p) {
+                      paste0(aqi.legend.labels)
+                    },
+                    title = "AQI", opacity = 1)
+        }
         leafletProxy("home_points")%>%
           clearControls()%>%
           clearShapes()%>%
@@ -522,6 +546,26 @@ server <- function(input, output) {
       }
       else if (input$home_points_source == "pm25") {
         points.col <- pm25[, which(colnames(pm25) == format(points.date, "PM25_%Y%m%d"))]
+        points.render <- function(map) { # define function to render points across maps
+          addCircles(map,
+                     data = points.col,
+                     lng = pm25$longitude, 
+                     lat = pm25$latitude, 
+                     color = pm25palette(points.col), 
+                     fillOpacity = 0.5, 
+                     radius = 5000, 
+                     stroke = FALSE,
+                     label = getLabels(points.date, pm25, "PM25"),
+                     labelOptions = labelOptions(
+                       style = list("font-weight" = "normal", 
+                                    padding = "3px 8px"),
+                       textsize = "15px",
+                       direction = "auto"))
+        }
+        points.legend <- function(map) {
+          addLegend(map, "bottomright", pal = pm25palette, values = points.col,
+                    title = "PM2.5", opacity = 1)
+        }
         leafletProxy("home_points")%>%
           clearControls()%>%
           clearShapes()%>%
@@ -537,22 +581,17 @@ server <- function(input, output) {
                         weight = 2, 
                         color = "gray", 
                         fillOpacity = 0.05))%>%
-          addCircles(data = points.col,
-                     lng = pm25$longitude, 
-                     lat = pm25$latitude, 
-                     color = pm25palette(points.col), 
-                     fillOpacity = 0.5, 
-                     radius = 5000, 
-                     stroke = FALSE,
-                     label = getLabels(points.date, pm25, "PM25"),
-                     labelOptions = labelOptions(
-                       style = list("font-weight" = "normal", 
-                                    padding = "3px 8px"),
-                       textsize = "15px",
-                       direction = "auto"))%>%
+          points.render()%>%
           addControl(paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")), position = "bottomleft")%>%
-          addLegend("bottomright", pal = pm25palette, values = points.col,
-                    title = "PM2.5", opacity = 1)
+          points.legend
+      }
+      else if (input$home_points_source == "none") {
+        points.render <- function(map) { # define function to render points across maps
+          map
+        }
+        points.legend <- function(map) {
+          map
+        }
       }
       # choropleth map
       if (input$home_choropleth_source == "covid") {
@@ -575,10 +614,12 @@ server <- function(input, output) {
                                      padding = "3px 8px"),
                         textsize = "15px",
                         direction = "auto"))%>%
+          points.render%>%
           addControl(paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")),
                      position = "bottomleft")%>%
           addLegend("bottomright", pal = covidpalette, values = in.col,
-                    title = "COVID Cases / 100,000", opacity = 1)
+                    title = "COVID Cases / 100,000", opacity = 1)%>%
+        points.legend
       }
       else if (input$home_choropleth_source == "asthma") {
         if (input$home_choropleth_age == "018") {
