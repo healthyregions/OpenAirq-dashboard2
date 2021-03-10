@@ -34,6 +34,10 @@ asthma.raw<- read.csv("Data/Asthma2017.csv")
 asthma.raw$zip<- as.character(asthma.raw$zip)
 chi.community.map <- st_read("Data/Chicago")
 chi.admin.map<- st_read("Data/ZipcodeBoundary")
+# chi.boundary<- st_transform(chi.admin.map, 3035) %>% # azimuthal equal-area projection (resolves warning)
+#   st_union() %>%
+#   st_transform(4326)
+# cook.wo.chi <- st_difference(c(chi.boundary, large.area$geometry[large.area$COUNTYNAME == "Cook"]))[2]
 covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
 asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
 
@@ -250,6 +254,17 @@ ui <- dashboardPage(
               fluidRow(box(width = 4,
                            leafletOutput("home_points", height = mapheight)),
                        box(width = 4,
+                           selectInput("home_points_var", "Select Variable for Sensors",
+                                          c("Air Quality Index" = "aqi",
+                                            "PM2.5" = "pm25",
+                                            "None" = "none"),
+                                       selected = "pm25"),
+                           selectInput("home_choropleth_var", "Select Variable for Regions",
+                                       c("Asthma ED Visits (0-18)" = "asthma018",
+                                         "Asthma ED Visits (65+)" = "asthma65",
+                                         "COVID-19 Cases" = "covid",
+                                         "None" = "none"),
+                                       selected = "covid"),
                            leafletOutput("home_choropleth", height = mapheight)),
                        box(width = 4,
                            plotlyOutput("home_plot", height = mapheight))),
