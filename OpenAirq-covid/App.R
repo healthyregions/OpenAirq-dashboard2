@@ -20,11 +20,11 @@ large.area$COUNTYNAME <- as.character(large.area$COUNTYNAME)
 descriptions <- read.csv("Data/Description.csv", stringsAsFactors = F)
 
 pm25<- read.csv("Data/PM25_Weekly/pm25.csv")
-pm25.means<- data.frame(PM25=apply(na.omit(pm25[, 6:ncol(pm25)]), 2, mean)) # may be worth doing externally
+pm25.means<- data.frame(PM25=apply(na.omit(pm25[, 7:ncol(pm25)]), 2, mean)) # may be worth doing externally
 week.idx<- seq(from=nrow(pm25.means) - 5, to=1, by=-7)
 pm25.trace<- pm25.means$PM25[week.idx] # may be worth doing externally
 aqi<- read.csv("Data/PM25_Weekly/aqi.csv")
-aqi.means<- data.frame(AQI=apply(na.omit(aqi[, 6:ncol(aqi)]), 2, mean)) # may be worth doing externally
+aqi.means<- data.frame(AQI=apply(na.omit(aqi[, 7:ncol(aqi)]), 2, mean)) # may be worth doing externally
 aqi.trace<- aqi.means$AQI[week.idx] # may be worth doing externally
 covid.raw<- read.csv("Data/CovidWeekly.csv")
 # FIXME: +1 is a workaround used to truncate COVID data without respective sensor data
