@@ -64,6 +64,7 @@ getLabels <- function(date, dataframe, varname) {
                  update, 
                  sep = " ") 
   labels[na.idx] <- repl
+  labels <- paste(dataframe$name, "<br>", labels, sep = "")
   labels %>% lapply(htmltools::HTML)
 }
 

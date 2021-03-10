@@ -28,11 +28,12 @@ full.data <- map_df(air, import_pm)
 county.pm25<- full.data%>%
   filter(COUNTY %in% counties$COUNTYNAME)%>%
   mutate(Date = as.Date(Date, format = "%m/%d/%Y"))%>%
-  dplyr::select(Date, `Site ID`,`Daily Mean PM2.5 Concentration`, COUNTY,SITE_LATITUDE, SITE_LONGITUDE, CBSA_NAME)%>%
-  group_by(Date, `Site ID`, COUNTY, CBSA_NAME)%>%
+  dplyr::select(Date, `Site ID`,`Daily Mean PM2.5 Concentration`, COUNTY,SITE_LATITUDE, SITE_LONGITUDE, `Site Name`)%>%
+  group_by(Date, `Site ID`, COUNTY)%>%
   summarise(pm2.5 = mean(`Daily Mean PM2.5 Concentration`, na.rm =TRUE),
             latitude = mean(SITE_LATITUDE), 
-            longitude = mean(SITE_LONGITUDE) )%>%
+            longitude = mean(SITE_LONGITUDE),
+            name = first(`Site Name`))%>%
   filter(Date >= '2020-12-01')%>%
   ungroup(Date)%>%
   arrange(desc(Date))%>%
@@ -55,11 +56,12 @@ write.csv(pm25, "Data/PM25_Weekly/pm25.csv")
 county.aqi<- full.data%>%
   filter(COUNTY %in% counties$COUNTYNAME)%>%
   mutate(Date = as.Date(Date, format = "%m/%d/%Y"))%>%
-  dplyr::select(Date, `Site ID`,DAILY_AQI_VALUE, COUNTY,SITE_LATITUDE, SITE_LONGITUDE, CBSA_NAME)%>%
-  group_by(Date, `Site ID`, COUNTY, CBSA_NAME)%>%
+  dplyr::select(Date, `Site ID`,DAILY_AQI_VALUE, COUNTY,SITE_LATITUDE, SITE_LONGITUDE, `Site Name`)%>%
+  group_by(Date, `Site ID`, COUNTY)%>%
   summarise(aqi = mean(DAILY_AQI_VALUE, na.rm =TRUE),
             latitude = mean(SITE_LATITUDE), 
-            longitude = mean(SITE_LONGITUDE) )%>%
+            longitude = mean(SITE_LONGITUDE),
+            name = first(`Site Name`))%>%
   filter(Date >= '2020-12-01')%>%
   ungroup(Date)%>%
   arrange(desc(Date))%>%

@@ -247,26 +247,26 @@ ui <- dashboardPage(
                                 step = as.difftime(7, units = "days"),
                                 animate = animationOptions(interval = 2000)))
               ),
-              fluidRow(box(width = 3,
+              fluidRow(box(width = 4,
                            leafletOutput("home_points", height = mapheight)),
-                       box(width = 3,
+                       box(width = 4,
                            leafletOutput("home_choropleth", height = mapheight)),
-                       box(width = 6,
+                       box(width = 4,
                            plotlyOutput("home_plot", height = mapheight))),
-              fluidRow(box(width = 3,
+              fluidRow(box(width = 4,
                            radioGroupButtons(inputId = paste("home_points", "source", sep = "_"),
                                              "Select Data Source:", 
                                              c("AQI" = "aqi", 
                                                "PM2.5" = "pm25",
                                                "None" = "none"),
                                              selected = "pm25")),
-                       box(width = 1,
+                       box(width = 2,
                            radioGroupButtons(inputId = paste("home_choropleth", "source", sep = "_"),
                                              "Select Data Source:", 
                                              c("COVID" = "covid", 
                                                "Asthma" = "asthma"),
                                              selected = "covid")),
-                       box(width = 1,
+                       box(width = 2,
                            radioGroupButtons(inputId = paste("home_choropleth", "age", sep = "_"),
                                              "Select Age Group (for ED visits):", 
                                              c("0-18" = "018", 
@@ -337,8 +337,8 @@ daterange<- paste("From", end_date, "to", end_date + days(6), sep = " ")
 
 ### Consider rounding these breaks? ###
 
-# pm25.bins <- classIntervals(na.omit(unlist(pm25[,6:ncol(pm25)])), 5, style="quantile")$brks # 5 quantile bins
-pm25.bins <- classIntervals(na.omit(unlist(pm25[,6:ncol(pm25)])), 5, style="fisher")$brks # 5 natural bins
+# pm25.bins <- classIntervals(na.omit(unlist(pm25[,7:ncol(pm25)])), 5, style="quantile")$brks # 5 quantile bins
+pm25.bins <- classIntervals(na.omit(unlist(pm25[,7:ncol(pm25)])), 5, style="fisher")$brks # 5 natural bins
 pm25palette <- colorBin(palette="YlOrRd" , bins=pm25.bins, na.color="dimgrey") # discrete
 # pm25palette <- colorBin(palette="YlOrRd" , domain = unlist(pm25[,6:ncol(pm25)]), na.color="dimgrey") # continuous
 
@@ -391,7 +391,8 @@ server <- function(input, output) {
                  fillOpacity = 0.5, 
                  radius= 5000, 
                  stroke=FALSE,
-                 label = getLabels(input$home_dt + days(6), aqi, "AQI"),
+                 layerId = pm25$Site.ID,
+                 label = getLabels(input$home_dt + days(6), pm25, "PM25"),
                  labelOptions = labelOptions(
                    style = list("font-weight" = "normal", 
                                 padding = "3px 8px"),
@@ -495,6 +496,7 @@ server <- function(input, output) {
                      fillOpacity = 0.5, 
                      radius = 5000, 
                      stroke = FALSE,
+                     layerId = aqi$Site.ID,
                      label = getLabels(points.date, aqi, "AQI"),
                      labelOptions = labelOptions(
                        style = list("font-weight" = "normal", 
@@ -524,25 +526,9 @@ server <- function(input, output) {
                         weight = 2, 
                         color = "gray", 
                         fillOpacity = 0.05))%>%
-          addCircles(data = points.col,
-                     lng = aqi$longitude, 
-                     lat = aqi$latitude, 
-                     color = aqipalette(points.col), 
-                     fillOpacity = 0.5, 
-                     radius = 5000, 
-                     stroke = FALSE,
-                     label = getLabels(points.date, aqi, "AQI"),
-                     labelOptions = labelOptions(
-                       style = list("font-weight" = "normal", 
-                                    padding = "3px 8px"),
-                       textsize = "15px",
-                       direction = "auto"))%>%
+          points.render%>%
           addControl(paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")), position = "bottomleft")%>%
-          addLegend("bottomright", pal = aqipalette, values = points.col,
-                    labFormat = function(type, cuts, p) {
-                      paste0(aqi.legend.labels)
-                    },
-                    title = "AQI", opacity = 1)
+          points.legend
       }
       else if (input$home_points_source == "pm25") {
         points.col <- pm25[, which(colnames(pm25) == format(points.date, "PM25_%Y%m%d"))]
@@ -555,6 +541,7 @@ server <- function(input, output) {
                      fillOpacity = 0.5, 
                      radius = 5000, 
                      stroke = FALSE,
+                     layerId = pm25$Site.ID,
                      label = getLabels(points.date, pm25, "PM25"),
                      labelOptions = labelOptions(
                        style = list("font-weight" = "normal", 
@@ -619,7 +606,7 @@ server <- function(input, output) {
                      position = "bottomleft")%>%
           addLegend("bottomright", pal = covidpalette, values = in.col,
                     title = "COVID Cases / 100,000", opacity = 1)%>%
-        points.legend
+          points.legend
       }
       else if (input$home_choropleth_source == "asthma") {
         if (input$home_choropleth_age == "018") {
@@ -641,9 +628,11 @@ server <- function(input, output) {
                                        padding = "3px 8px"),
                           textsize = "15px",
                           direction = "auto"))%>%
+            points.render%>%
             addControl(paste0("From 2017"), position = "bottomleft")%>%
             addLegend("bottomright", pal = asthmapalette, values = asthma$rate0_18,
-                      title = "Asthma ED Visits / 10,000", opacity = 1)
+                      title = "Asthma ED Visits / 10,000", opacity = 1)%>%
+            points.legend
         }
         else if (input$home_choropleth_age == "65") {
           leafletProxy("home_choropleth")%>%
@@ -664,9 +653,11 @@ server <- function(input, output) {
                                        padding = "3px 8px"),
                           textsize = "15px",
                           direction = "auto"))%>%
+            points.render%>%
             addControl(paste0("From 2017"), position = "bottomleft")%>%
             addLegend("bottomright", pal = asthmapalette, values = asthma$rate65,
-                      title = "Asthma ED Visits / 10,000", opacity = 1)
+                      title = "Asthma ED Visits / 10,000", opacity = 1)%>%
+            points.legend
         }
       }
     }
