@@ -368,6 +368,7 @@ labels_covid <- sprintf(
 server <- function(input, output) {
   ##### HOME START #####
   all.fips <- reactiveValues(fips = c())
+  all.sensors <- reactiveValues(sensors = c())
   
   output$home_points <- renderLeaflet({
     leaflet() %>%
@@ -430,6 +431,8 @@ server <- function(input, output) {
   output$home_plot <- renderPlotly({
     dates <- format(strptime(rownames(covid.means), "COVID_Week_%Y%m%d"), "%Y-%m-%d")
     blues <- c("#033682", "#0356a3", "#0083d9", "#66ccff", "#c9e8ff")
+    reds <- c("#9c1500", "#f52302", "#ff6e57", "#ff9a8a", "#ffc8bf")
+    greens <- c("#165422", "#0b9926", "#14ff41", "#91faa5", "#d6ffde")
     
     p <- plot_ly() %>% config(displayModeBar = F) %>%
       layout(legend = list(x = .5, y = 100, orientation = "h")) %>%
@@ -446,7 +449,7 @@ server <- function(input, output) {
                 type = "scatter",
                 mode = "lines",
                 opacity = 1,
-                line = list(dash = "solid", color = aqipalette(0)),
+                line = list(dash = "solid", color = greens[1]),
                 name = paste("Average", "AQI / sensor", sep = " "),
                 text = paste("Average", "AQI / sensor", sep = " ")) %>%
       add_trace(x = dates,
@@ -454,7 +457,7 @@ server <- function(input, output) {
                 type = "scatter",
                 mode = "lines",
                 opacity = 1,
-                line = list(dash = "solid", color = pm25palette(12)),
+                line = list(dash = "solid", color = reds[1]),
                 name = paste("Average", "PM2.5 / sensor", sep = " "),
                 text = paste("Average", "PM2.5 / sensor", sep = " "))
     
@@ -472,12 +475,49 @@ server <- function(input, output) {
                     text = paste("COVID cases in", all.fips$fips[i], sep = " "))
       }
     }
+    if (length(all.sensors$sensors) > 0) {
+      for (i in 1:length(all.sensors$sensors)) {
+        p <- p %>%
+          add_trace(x = dates,
+                    # +6 offsets week.idx to match full data frame
+                    y = as.numeric(aqi[which(grepl(all.sensors$sensors[i], aqi$Site.ID)), (week.idx + 6)]),
+                    type = "scatter",
+                    mode = "lines",
+                    opacity = 0.8,
+                    line = list(dash = "dot", color = greens[(i %% length(greens)) + 1]),
+                    name = paste("AQI at", 
+                                 aqi$name[which(grepl(all.sensors$sensors[i], aqi$Site.ID))], 
+                                 "sensor", sep = " "),
+                    text = paste("AQI at", 
+                                 aqi$name[which(grepl(all.sensors$sensors[i], aqi$Site.ID))], 
+                                 "sensor", sep = " "))
+        p <- p %>%
+          add_trace(x = dates,
+                    # +6 offsets week.idx to match full data frame
+                    y = as.numeric(pm25[which(grepl(all.sensors$sensors[i], pm25$Site.ID)), (week.idx + 6)]),
+                    type = "scatter",
+                    mode = "lines",
+                    opacity = 0.8,
+                    line = list(dash = "dot", color = reds[(i %% length(reds)) + 1]),
+                    name = paste("PM2.5 at", 
+                                 pm25$name[which(grepl(all.sensors$sensors[i], pm25$Site.ID))], 
+                                 "sensor", sep = " "),
+                    text = paste("PM2.5 at", 
+                                 pm25$name[which(grepl(all.sensors$sensors[i], pm25$Site.ID))], 
+                                 "sensor", sep = " "))
+      }
+    }
     
     p
   })
-  observeEvent(input$home_choropleth_shape_click, {
+  observeEvent(input$home_choropleth_shape_click, { # update reactive values on click
     if(input$sidebar == "home") {
-      all.fips$fips <- unique(c(all.fips$fips, input$home_choropleth_shape_click$id))
+      if(typeof(input$home_choropleth_shape_click$id) == "character") { # zip code
+        all.fips$fips <- unique(c(all.fips$fips, input$home_choropleth_shape_click$id))
+      }
+      else if(typeof(input$home_choropleth_shape_click$id) == "integer") { # sensor id
+        all.sensors$sensors <- unique(c(all.sensors$sensors, input$home_choropleth_shape_click$id))
+      }
     }
   })
   observe({
