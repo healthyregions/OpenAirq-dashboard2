@@ -731,7 +731,12 @@ server <- function(input, output) {
     greens <- c("#165422", "#0b9926", "#14ff41", "#91faa5", "#d6ffde")
     
     p <- plot_ly() %>% config(displayModeBar = F) %>%
-      layout(legend = list(x = .5, y = 100, orientation = "h")) %>%
+      layout(legend = list(x = .5, y = 100, orientation = "h")
+             # shapes = list(list(type = "line", y0 = 0, y1 = 1, yref = "paper",
+             #               x0 = input$home_dt, x1 = input$home_dt, line = list(color = "darkgrey")))
+             ) %>%
+      add_segments(x = input$home_dt, xend = input$home_dt, y = 0, yend = max(covid.bins),
+                   line = list(yref = "paper", color = "darkgrey"), name = "Current Date")%>%
       add_trace(x = dates,
                 y = covid.trace,
                 type = "scatter",
