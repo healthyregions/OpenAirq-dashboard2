@@ -34,9 +34,9 @@ asthma.raw<- read.csv("Data/Asthma2017.csv")
 asthma.raw$zip<- as.character(asthma.raw$zip)
 chi.community.map <- st_read("Data/Chicago")
 chi.admin.map<- st_read("Data/ZipcodeBoundary")
-# chi.boundary<- st_transform(chi.admin.map, 3035) %>% # azimuthal equal-area projection (resolves warning)
-#   st_union() %>%
-#   st_transform(4326)
+chi.boundary<- st_transform(chi.admin.map, 3035) %>% # azimuthal equal-area projection (resolves warning)
+  st_union() %>%
+  st_transform(4326)
 # cook.wo.chi <- st_difference(c(chi.boundary, large.area$geometry[large.area$COUNTYNAME == "Cook"]))[2]
 covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
 asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
@@ -46,6 +46,10 @@ asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
 ##### VARIABLE START #####
 
 mapheight = 500
+
+view.bounds <- st_bbox(large.area$geometry)
+names(view.bounds) <- c("lng1", "lat1", "lng2", "lat2")
+view.bounds <- split(unname(view.bounds), names(view.bounds))
 
 ##### SENSOR START #####
 
@@ -252,41 +256,37 @@ ui <- dashboardPage(
                                 animate = animationOptions(interval = 2000)))
               ),
               fluidRow(box(width = 4,
-                           leafletOutput("home_points", height = mapheight)),
+                           selectInput(paste("home_map_left", "sensor", sep = "_"),
+                                       "Select Variable for Sensors",
+                                       c("Air Quality Index" = "aqi",
+                                         "PM2.5" = "pm25",
+                                         "None" = "none"),
+                                       selected = "aqi"),
+                           selectInput(paste("home_map_left", "choropleth", sep = "_"), 
+                                       "Select Variable for Regions",
+                                       c("Asthma ED Visits (0-18)" = "asthma018",
+                                         "Asthma ED Visits (65+)" = "asthma65",
+                                         "COVID-19 Cases" = "covid",
+                                         "None" = "none"),
+                                       selected = "asthma018"),
+                           leafletOutput("home_map_left", height = mapheight)),
                        box(width = 4,
-                           selectInput("home_points_var", "Select Variable for Sensors",
-                                          c("Air Quality Index" = "aqi",
-                                            "PM2.5" = "pm25",
-                                            "None" = "none"),
+                           selectInput(paste("home_map_right", "sensor", sep = "_"),
+                                       "Select Variable for Sensors",
+                                       c("Air Quality Index" = "aqi",
+                                         "PM2.5" = "pm25",
+                                         "None" = "none"),
                                        selected = "pm25"),
-                           selectInput("home_choropleth_var", "Select Variable for Regions",
+                           selectInput(paste("home_map_right", "choropleth", sep = "_"), 
+                                       "Select Variable for Regions",
                                        c("Asthma ED Visits (0-18)" = "asthma018",
                                          "Asthma ED Visits (65+)" = "asthma65",
                                          "COVID-19 Cases" = "covid",
                                          "None" = "none"),
                                        selected = "covid"),
-                           leafletOutput("home_choropleth", height = mapheight)),
+                           leafletOutput("home_map_right", height = mapheight)),
                        box(width = 4,
-                           plotlyOutput("home_plot", height = mapheight))),
-              fluidRow(box(width = 4,
-                           radioGroupButtons(inputId = paste("home_points", "source", sep = "_"),
-                                             "Select Data Source:", 
-                                             c("AQI" = "aqi", 
-                                               "PM2.5" = "pm25",
-                                               "None" = "none"),
-                                             selected = "pm25")),
-                       box(width = 2,
-                           radioGroupButtons(inputId = paste("home_choropleth", "source", sep = "_"),
-                                             "Select Data Source:", 
-                                             c("COVID" = "covid", 
-                                               "Asthma" = "asthma"),
-                                             selected = "covid")),
-                       box(width = 2,
-                           radioGroupButtons(inputId = paste("home_choropleth", "age", sep = "_"),
-                                             "Select Age Group (for ED visits):", 
-                                             c("0-18" = "018", 
-                                               "65+" = "65"),
-                                             selected = "65")))),
+                           plotlyOutput("home_plot", height = mapheight)))),
       ##### HOME END #####
       
       ##### ABOUT START #####
@@ -348,8 +348,6 @@ daterange<- paste("From", end_date, "to", end_date + days(6), sep = " ")
 # end_date<- Sys.Date()
 # start_date<- end_date - 6
 
-# home.view <- list(lat = "41.97736", lng = "-87.62255", zoom = 7)
-
 ### Consider rounding these breaks? ###
 
 # pm25.bins <- classIntervals(na.omit(unlist(pm25[,7:ncol(pm25)])), 5, style="quantile")$brks # 5 quantile bins
@@ -385,10 +383,287 @@ server <- function(input, output) {
   all.fips <- reactiveValues(fips = c())
   all.sensors <- reactiveValues(sensors = c())
   
-  output$home_points <- renderLeaflet({
+  ##### REACIVE FUNCTIONS START #####
+  left.sensor <- function(map) {
+    in.date <- input$home_dt + days(6) # week shifts forward for sensor data
+    if (input$home_map_left_sensor == "pm25") {
+      col <- pm25[, which(colnames(pm25) == format(in.date, "PM25_%Y%m%d"))]
+      addCircles(map,
+                 data = col,
+                 lng = pm25$longitude,
+                 lat = pm25$latitude,
+                 color = pm25palette(col),
+                 fillOpacity = 0.5,
+                 radius = 5000,
+                 stroke = FALSE,
+                 layerId = pm25$Site.ID,
+                 label = getLabels(in.date, pm25, "PM25"),
+                 labelOptions = labelOptions(
+                   style = list("font-weight" = "normal",
+                                padding = "3px 8px"),
+                   textsize = "15px",
+                   direction = "auto"))
+    }
+    else if (input$home_map_left_sensor == "aqi") {
+      col <- aqi[, which(colnames(aqi) == format(in.date, "AQI_%Y%m%d"))]
+      addCircles(map,
+                 data = col,
+                 lng = aqi$longitude,
+                 lat = aqi$latitude,
+                 color = aqipalette(col),
+                 fillOpacity = 0.5,
+                 radius = 5000,
+                 stroke = FALSE,
+                 layerId = aqi$Site.ID,
+                 label = getLabels(in.date, aqi, "AQI"),
+                 labelOptions = labelOptions(
+                   style = list("font-weight" = "normal",
+                                padding = "3px 8px"),
+                   textsize = "15px",
+                   direction = "auto"))
+    }
+    else if (input$home_map_left_sensor == "none") {
+      map
+    }
+  }
+  left.choropleth <- function(map) {
+    if (input$home_map_left_choropleth == "asthma018") {
+      addPolygons(map,
+                  data = asthma,
+                  fillColor = asthmapalette(asthma$rate0_18),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = asthma$zip,
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))
+    }
+    else if (input$home_map_left_choropleth == "asthma65") {
+      addPolygons(map,
+                  data = asthma,
+                  fillColor = asthmapalette(asthma$rate65),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = asthma$zip,
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))
+    }
+    else if (input$home_map_left_choropleth == "covid") {
+      addPolygons(map,
+                  data = covid,
+                  fillColor = covidpalette(covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]]),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = covid$zip,
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))
+    }
+    else if (input$home_map_left_choropleth == "none") {
+      map
+    }
+  }
+  left.controls <- function(map) {
+    map <- addControl(map,
+                      paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")),
+                      position = "bottomleft")
+    # add choropleth legend
+    if (input$home_map_left_choropleth == "asthma018") {
+      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate0_18,
+                       title = "Asthma ED Visits / 10,000", opacity = 1)
+    }
+    else if (input$home_map_left_choropleth == "asthma65") {
+      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate65,
+                       title = "Asthma ED Visits / 10,000", opacity = 1)
+    }
+    else if (input$home_map_left_choropleth == "covid") {
+      map <- addLegend(map, "bottomright", pal = covidpalette, 
+                       values = covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]],
+                       title = "COVID Cases / 100,000", opacity = 1)
+    }
+    # add sensor legend
+    if (input$home_map_left_sensor == "pm25") {
+      map <- addLegend(map, "bottomright", pal = pm25palette, 
+                       values = pm25[, which(colnames(pm25) == format(input$home_dt + days(6), "PM25_%Y%m%d"))],
+                       title = "PM2.5", opacity = 1)
+    }
+    else if (input$home_map_left_sensor == "aqi") {
+      map <- addLegend(map, "bottomright", pal = aqipalette, 
+                       values = aqi[, which(colnames(aqi) == format(input$home_dt + days(6), "AQI_%Y%m%d"))],
+                       labFormat = function(type, cuts, p) {
+                         paste0(aqi.legend.labels)
+                       },
+                       title = "AQI", opacity = 1)
+    }
+    
+    map
+  }
+  right.sensor <- function(map) {
+    in.date <- input$home_dt + days(6) # week shifts forward for sensor data
+    if (input$home_map_right_sensor == "pm25") {
+      col <- pm25[, which(colnames(pm25) == format(in.date, "PM25_%Y%m%d"))]
+      addCircles(map,
+                 data = col,
+                 lng = pm25$longitude,
+                 lat = pm25$latitude,
+                 color = pm25palette(col),
+                 fillOpacity = 0.5,
+                 radius = 5000,
+                 stroke = FALSE,
+                 layerId = pm25$Site.ID,
+                 label = getLabels(in.date, pm25, "PM25"),
+                 labelOptions = labelOptions(
+                   style = list("font-weight" = "normal",
+                                padding = "3px 8px"),
+                   textsize = "15px",
+                   direction = "auto"))
+    }
+    else if (input$home_map_right_sensor == "aqi") {
+      col <- aqi[, which(colnames(aqi) == format(in.date, "AQI_%Y%m%d"))]
+      addCircles(map,
+                 data = col,
+                 lng = aqi$longitude,
+                 lat = aqi$latitude,
+                 color = aqipalette(col),
+                 fillOpacity = 0.5,
+                 radius = 5000,
+                 stroke = FALSE,
+                 layerId = aqi$Site.ID,
+                 label = getLabels(in.date, aqi, "AQI"),
+                 labelOptions = labelOptions(
+                   style = list("font-weight" = "normal",
+                                padding = "3px 8px"),
+                   textsize = "15px",
+                   direction = "auto"))
+    }
+    else if (input$home_map_right_sensor == "none") {
+      map
+    }
+  }
+  right.choropleth <- function(map) {
+    if (input$home_map_right_choropleth == "asthma018") {
+      addPolygons(map,
+                  data = asthma,
+                  fillColor = asthmapalette(asthma$rate0_18),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = asthma$zip,
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))
+    }
+    else if (input$home_map_right_choropleth == "asthma65") {
+      addPolygons(map,
+                  data = asthma,
+                  fillColor = asthmapalette(asthma$rate65),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = asthma$zip,
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))
+    }
+    else if (input$home_map_right_choropleth == "covid") {
+      addPolygons(map,
+                  data = covid,
+                  fillColor = covidpalette(covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]]),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = covid$zip,
+                  label = labels_covid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))
+    }
+    else if (input$home_map_right_choropleth == "none") {
+      map
+    }
+  }
+  right.controls <- function(map) {
+    map <- addControl(map,
+                      paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")),
+                      position = "bottomleft")
+    # add choropleth legend
+    if (input$home_map_right_choropleth == "asthma018") {
+      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate0_18,
+                       title = "Asthma ED Visits / 10,000", opacity = 1)
+    }
+    else if (input$home_map_right_choropleth == "asthma65") {
+      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate65,
+                       title = "Asthma ED Visits / 10,000", opacity = 1)
+    }
+    else if (input$home_map_right_choropleth == "covid") {
+      map <- addLegend(map, "bottomright", pal = covidpalette, 
+                       values = covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]],
+                       title = "COVID Cases / 100,000", opacity = 1)
+    }
+    # add sensor legend
+    if (input$home_map_right_sensor == "pm25") {
+      map <- addLegend(map, "bottomright", pal = pm25palette, 
+                       values = pm25[, which(colnames(pm25) == format(input$home_dt + days(6), "PM25_%Y%m%d"))],
+                       title = "PM2.5", opacity = 1)
+    }
+    else if (input$home_map_right_sensor == "aqi") {
+      map <- addLegend(map, "bottomright", pal = aqipalette, 
+                       values = aqi[, which(colnames(aqi) == format(input$home_dt + days(6), "AQI_%Y%m%d"))],
+                       labFormat = function(type, cuts, p) {
+                         paste0(aqi.legend.labels)
+                       },
+                       title = "AQI", opacity = 1)
+    }
+    
+    map
+  }
+  ##### REACIVE FUNCTIONS END #####
+  
+  output$home_map_left <- renderLeaflet({
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
-      # setView(lat = home.view$lat, lng = home.view$lng, zoom = home.view$zoom)%>%
+      list()%>% # these 3 lines fit the map to the bbox of large.area
+      c(view.bounds)%>%
+      { exec(fitBounds, !!!.) }%>%
       addPolygons(data = large.area, 
                   color = "darkslategray",
                   fillOpacity  = 0.00, 
@@ -400,47 +675,53 @@ server <- function(input, output) {
                     weight = 2, 
                     color = "gray", 
                     fillOpacity = 0.05))%>%
-      addCircles(data = pm25$PM25_20210220,
-                 lng = pm25$longitude, 
-                 lat = pm25$latitude, 
-                 color = pm25palette(pm25$PM25_20210220), 
-                 fillOpacity = 0.5, 
-                 radius= 5000, 
-                 stroke=FALSE,
-                 layerId = pm25$Site.ID,
-                 label = getLabels(input$home_dt + days(6), pm25, "PM25"),
-                 labelOptions = labelOptions(
-                   style = list("font-weight" = "normal", 
-                                padding = "3px 8px"),
-                   textsize = "15px",
-                   direction = "auto"))%>%
-      addControl(paste0(daterange), position = "bottomleft")%>%
-      addLegend("bottomright", pal = pm25palette, values = pm25$PM25_20210220,
-                title = "PM2.5", opacity = 1)
+      addPolygons(data = chi.boundary, 
+                  color = "darkslategray",
+                  fillOpacity  = 0.00, 
+                  stroke = TRUE,
+                  opacity = 1,
+                  layerId = "Chicago",
+                  weight = 2,
+                  highlight = highlightOptions(
+                    weight = 2, 
+                    color = "gray", 
+                    fillOpacity = 0.05))%>%
+      left.choropleth%>%
+      left.sensor%>%
+      left.controls
     
   })
-  output$home_choropleth <- renderLeaflet({
+  output$home_map_right <- renderLeaflet({
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
-      # setView(lat = home.view$lat, lng = home.view$lng, zoom = home.view$zoom)%>%
-      addPolygons(data = covid, 
-                  fillColor = covidpalette(covid$COVID_Week_20210214),
-                  fillOpacity  = 0.7, 
-                  color = "white",
-                  stroke = FALSE,
-                  weight = 2,
+      list()%>% # these 3 lines fit the map to the bbox of large.area
+      c(view.bounds)%>%
+      { exec(fitBounds, !!!.) }%>%
+      addPolygons(data = large.area, 
+                  color = "darkslategray",
+                  fillOpacity  = 0.00, 
+                  stroke = TRUE,
                   opacity = 1,
-                  dashArray = "3",
-                  layerId = covid$zip,
-                  label = labels_covid,
-                  labelOptions = labelOptions(
-                    style = list("font-weight" = "normal", 
-                                 padding = "3px 8px"),
-                    textsize = "15px",
-                    direction = "auto"))%>%
-      addControl(paste0(daterange), position = "bottomleft")%>%
-      addLegend("bottomright", pal = covidpalette, values = covid$COVID_Week_20210214,
-                title = "COVID Cases / 100,000", opacity = 1)
+                  layerId = large.area$FIPS,
+                  weight = 1,
+                  highlight = highlightOptions(
+                    weight = 2, 
+                    color = "gray", 
+                    fillOpacity = 0.05))%>%
+      addPolygons(data = chi.boundary, 
+                  color = "darkslategray",
+                  fillOpacity  = 0.00, 
+                  stroke = TRUE,
+                  opacity = 1,
+                  layerId = "Chicago",
+                  weight = 2,
+                  highlight = highlightOptions(
+                    weight = 2, 
+                    color = "gray", 
+                    fillOpacity = 0.05))%>%
+      right.choropleth%>%
+      right.sensor%>%
+      right.controls
     
   })
   output$home_plot <- renderPlotly({
@@ -525,195 +806,24 @@ server <- function(input, output) {
     
     p
   })
-  observeEvent(input$home_choropleth_shape_click, { # update reactive values on click
+  
+  observeEvent(input$home_map_left_shape_click, { # update reactive values on click
     if(input$sidebar == "home") {
-      if(typeof(input$home_choropleth_shape_click$id) == "character") { # zip code
-        all.fips$fips <- unique(c(all.fips$fips, input$home_choropleth_shape_click$id))
+      if(typeof(input$home_map_left_shape_click$id) == "character") { # zip code
+        all.fips$fips <- unique(c(all.fips$fips, input$home_map_left_shape_click$id))
       }
-      else if(typeof(input$home_choropleth_shape_click$id) == "integer") { # sensor id
-        all.sensors$sensors <- unique(c(all.sensors$sensors, input$home_choropleth_shape_click$id))
+      else if(typeof(input$home_map_left_shape_click$id) == "integer") { # sensor id
+        all.sensors$sensors <- unique(c(all.sensors$sensors, input$home_map_left_shape_click$id))
       }
     }
   })
-  observe({
-    if (input$sidebar == "home") {
-      points.date <- input$home_dt + days(6) # week shifts forward for sensor data
-      
-      # sensor map
-      if (input$home_points_source == "aqi") {
-        points.col <- aqi[, which(colnames(aqi) == format(points.date, "AQI_%Y%m%d"))]
-        points.render <- function(map) { # define function to render points across maps
-          addCircles(map,
-                     data = points.col,
-                     lng = aqi$longitude, 
-                     lat = aqi$latitude, 
-                     color = aqipalette(points.col), 
-                     fillOpacity = 0.5, 
-                     radius = 5000, 
-                     stroke = FALSE,
-                     layerId = aqi$Site.ID,
-                     label = getLabels(points.date, aqi, "AQI"),
-                     labelOptions = labelOptions(
-                       style = list("font-weight" = "normal", 
-                                    padding = "3px 8px"),
-                       textsize = "15px",
-                       direction = "auto"))
-        }
-        points.legend <- function(map) {
-          addLegend(map, "bottomright", pal = aqipalette, values = points.col,
-                    labFormat = function(type, cuts, p) {
-                      paste0(aqi.legend.labels)
-                    },
-                    title = "AQI", opacity = 1)
-        }
-        leafletProxy("home_points")%>%
-          clearControls()%>%
-          clearShapes()%>%
-          addProviderTiles("CartoDB.Positron")%>%
-          addPolygons(data = large.area, 
-                      color = "darkslategray",
-                      fillOpacity  = 0.00, 
-                      stroke = TRUE,
-                      opacity = 1,
-                      layerId = large.area$FIPS,
-                      weight = 1,
-                      highlight = highlightOptions(
-                        weight = 2, 
-                        color = "gray", 
-                        fillOpacity = 0.05))%>%
-          points.render%>%
-          addControl(paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")), position = "bottomleft")%>%
-          points.legend
+  observeEvent(input$home_map_right_shape_click, { # update reactive values on click
+    if(input$sidebar == "home") {
+      if(typeof(input$home_map_right_shape_click$id) == "character") { # zip code
+        all.fips$fips <- unique(c(all.fips$fips, input$home_map_right_shape_click$id))
       }
-      else if (input$home_points_source == "pm25") {
-        points.col <- pm25[, which(colnames(pm25) == format(points.date, "PM25_%Y%m%d"))]
-        points.render <- function(map) { # define function to render points across maps
-          addCircles(map,
-                     data = points.col,
-                     lng = pm25$longitude, 
-                     lat = pm25$latitude, 
-                     color = pm25palette(points.col), 
-                     fillOpacity = 0.5, 
-                     radius = 5000, 
-                     stroke = FALSE,
-                     layerId = pm25$Site.ID,
-                     label = getLabels(points.date, pm25, "PM25"),
-                     labelOptions = labelOptions(
-                       style = list("font-weight" = "normal", 
-                                    padding = "3px 8px"),
-                       textsize = "15px",
-                       direction = "auto"))
-        }
-        points.legend <- function(map) {
-          addLegend(map, "bottomright", pal = pm25palette, values = points.col,
-                    title = "PM2.5", opacity = 1)
-        }
-        leafletProxy("home_points")%>%
-          clearControls()%>%
-          clearShapes()%>%
-          addProviderTiles("CartoDB.Positron")%>%
-          addPolygons(data = large.area, 
-                      color = "darkslategray",
-                      fillOpacity  = 0.00, 
-                      stroke = TRUE,
-                      opacity = 1,
-                      layerId = large.area$FIPS,
-                      weight = 1,
-                      highlight = highlightOptions(
-                        weight = 2, 
-                        color = "gray", 
-                        fillOpacity = 0.05))%>%
-          points.render()%>%
-          addControl(paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")), position = "bottomleft")%>%
-          points.legend
-      }
-      else if (input$home_points_source == "none") {
-        points.render <- function(map) { # define function to render points across maps
-          map
-        }
-        points.legend <- function(map) {
-          map
-        }
-      }
-      # choropleth map
-      if (input$home_choropleth_source == "covid") {
-        in.col <- covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]]
-        leafletProxy("home_choropleth")%>%
-          clearControls()%>%
-          clearShapes()%>%
-          addPolygons(data = covid, 
-                      fillColor = covidpalette(in.col),
-                      fillOpacity  = 0.7, 
-                      color = "white",
-                      stroke = FALSE,
-                      weight = 2,
-                      opacity = 1,
-                      dashArray = "3",
-                      layerId = covid$zip,
-                      label = labels_covid,
-                      labelOptions = labelOptions(
-                        style = list("font-weight" = "normal", 
-                                     padding = "3px 8px"),
-                        textsize = "15px",
-                        direction = "auto"))%>%
-          points.render%>%
-          addControl(paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")),
-                     position = "bottomleft")%>%
-          addLegend("bottomright", pal = covidpalette, values = in.col,
-                    title = "COVID Cases / 100,000", opacity = 1)%>%
-          points.legend
-      }
-      else if (input$home_choropleth_source == "asthma") {
-        if (input$home_choropleth_age == "018") {
-          leafletProxy("home_choropleth")%>%
-            clearControls()%>%
-            clearShapes()%>%
-            addPolygons(data = asthma, 
-                        fillColor = asthmapalette(asthma$rate0_18),
-                        fillOpacity  = 0.7, 
-                        color = "white",
-                        stroke = FALSE,
-                        weight = 2,
-                        opacity = 1,
-                        dashArray = "3",
-                        layerId = asthma$zip,
-                        label = labels_covid,
-                        labelOptions = labelOptions(
-                          style = list("font-weight" = "normal", 
-                                       padding = "3px 8px"),
-                          textsize = "15px",
-                          direction = "auto"))%>%
-            points.render%>%
-            addControl(paste0("From 2017"), position = "bottomleft")%>%
-            addLegend("bottomright", pal = asthmapalette, values = asthma$rate0_18,
-                      title = "Asthma ED Visits / 10,000", opacity = 1)%>%
-            points.legend
-        }
-        else if (input$home_choropleth_age == "65") {
-          leafletProxy("home_choropleth")%>%
-            clearControls()%>%
-            clearShapes()%>%
-            addPolygons(data = asthma, 
-                        fillColor = asthmapalette(asthma$rate65),
-                        fillOpacity  = 0.7, 
-                        color = "white",
-                        stroke = FALSE,
-                        weight = 2,
-                        opacity = 1,
-                        dashArray = "3",
-                        layerId = asthma$zip,
-                        label = labels_covid,
-                        labelOptions = labelOptions(
-                          style = list("font-weight" = "normal", 
-                                       padding = "3px 8px"),
-                          textsize = "15px",
-                          direction = "auto"))%>%
-            points.render%>%
-            addControl(paste0("From 2017"), position = "bottomleft")%>%
-            addLegend("bottomright", pal = asthmapalette, values = asthma$rate65,
-                      title = "Asthma ED Visits / 10,000", opacity = 1)%>%
-            points.legend
-        }
+      else if(typeof(input$home_map_right_shape_click$id) == "integer") { # sensor id
+        all.sensors$sensors <- unique(c(all.sensors$sensors, input$home_map_right_shape_click$id))
       }
     }
   })
