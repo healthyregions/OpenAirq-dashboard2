@@ -86,6 +86,10 @@ covid.tabname <- "covid"
 asthma.tabname <- "asthma"
 ##### ASTHMA END #####
 
+##### TRACT START #####
+tract.tabname <- "tract"
+##### TRACT END #####
+
 ##### VARIABLE END #####
 
 ##### THEME START #####
@@ -242,6 +246,7 @@ ui <- dashboardPage(
                                menuItem("EPA Sensor Data", tabName = "sensor", icon = icon("envira")),
                                menuItem("COVID Data", tabName = "covid", icon = icon("medkit")),
                                menuItem("Asthma Data", tabName = "asthma", icon = icon("lungs")),
+                               menuItem("Tract Data", tabName = "tract", icon = icon("layer-group")),
                                menuItem("Downloads", icon = icon("download"), tabName = "downloads"))
   ),
   
@@ -342,6 +347,23 @@ ui <- dashboardPage(
                                       selected = "65"))
               )),
       ##### ASTHMA END #####
+      
+      ##### TRACT START #####
+      tabItem(tabName = tract.tabname,
+              fluidRow(
+                box(width = 12,
+                    leafletOutput(paste(tract.tabname, "map", sep = "_"), height = mapheight)
+                )
+              ),
+              fluidRow(
+                box(width = 3,
+                    radioGroupButtons(inputId = paste(tract.tabname, "source", sep = "_"),
+                                      "Select Data Source:", 
+                                      c("PM2.5" = "pm25", 
+                                        "SVI" = "svi"),
+                                      selected = "pm25"))
+              )),
+
       
       ##### DOWNLOADS START #####
       tabItem(tabName = "downloads")
@@ -1178,6 +1200,81 @@ server <- function(input, output) {
     }
   })
   ##### ASTHMA END #####
+  
+  ##### TRACT START #####
+  output$tract_map <- renderLeaflet({
+    leaflet() %>%
+      addProviderTiles("CartoDB.Positron")%>%
+      addPolygons(data = trees,
+                  fillColor = pm25palette(trees$nn_q3_pm2_),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = trees$geoid,
+                  label = trees$geoid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto"))%>%
+      addLegend("bottomright", pal = pm25palette, 
+                values = trees$nn_q3_pm2_,
+                title = "PM2.5", opacity = 1)
+  })
+  observeEvent(input$tract_source, {
+    if(input$sidebar == "tract") { #Optimize Dashboard speed by not observing outside of tab
+      if(input$tract_source == "pm25") {
+        leafletProxy("tract_map")%>%
+          clearShapes()%>%
+          clearControls()%>%
+          addPolygons(data = trees,
+                      fillColor = pm25palette(trees$nn_q3_pm2_),
+                      fillOpacity  = 0.7,
+                      color = "white",
+                      stroke = FALSE,
+                      weight = 2,
+                      opacity = 1,
+                      dashArray = "3",
+                      layerId = trees$geoid,
+                      label = trees$geoid,
+                      labelOptions = labelOptions(
+                        style = list("font-weight" = "normal",
+                                     padding = "3px 8px"),
+                        textsize = "15px",
+                        direction = "auto"))%>%
+          addLegend("bottomright", pal = pm25palette, 
+                    values = trees$nn_q3_pm2_,
+                    title = "PM2.5", opacity = 1)
+      }
+      else if (input$tract_source == "svi") {
+        leafletProxy("tract_map")%>%
+          clearShapes()%>%
+          clearControls()%>%
+          addPolygons(data = trees,
+                      fillColor = svipalette(trees$svi_pecent),
+                      fillOpacity  = 0.7,
+                      color = "white",
+                      stroke = FALSE,
+                      weight = 2,
+                      opacity = 1,
+                      dashArray = "3",
+                      layerId = trees$geoid,
+                      label = trees$geoid,
+                      labelOptions = labelOptions(
+                        style = list("font-weight" = "normal",
+                                     padding = "3px 8px"),
+                        textsize = "15px",
+                        direction = "auto"))%>%
+          addLegend("bottomright", pal = svipalette, 
+                    values = trees$svi_pecent,
+                    title = "SVI Percentile", opacity = 1)
+      }
+    }
+  })
+  ##### TRACT END #####
   
   ##### DOWNLOADS #####
 }
