@@ -40,6 +40,10 @@ chi.boundary<- st_transform(chi.admin.map, 3035) %>% # azimuthal equal-area proj
 # cook.wo.chi <- st_difference(c(chi.boundary, large.area$geometry[large.area$COUNTYNAME == "Cook"]))[2]
 covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
 asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
+trees.all <- st_read("Data/Tract/tree_sst_master_tracts_v2_0_1.shp")
+trees.var <- c("geoid", "svi_pecent", "trees_crow", "logtraf",
+               "urban_floo", "heatisl","nn_q3_pm2_", "asthma_5yr")
+trees <- trees.all[,trees.var]
 
 ##### DATA LOADING END ##### 
 
@@ -47,9 +51,13 @@ asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
 
 mapheight = 500
 
-view.bounds <- st_bbox(large.area$geometry)
-names(view.bounds) <- c("lng1", "lat1", "lng2", "lat2")
-view.bounds <- split(unname(view.bounds), names(view.bounds))
+counties.bounds <- st_bbox(large.area$geometry)
+names(counties.bounds) <- c("lng1", "lat1", "lng2", "lat2")
+counties.bounds <- split(unname(counties.bounds), names(counties.bounds))
+
+chi.bounds <- st_bbox(chi.admin.map$geometry)
+names(chi.bounds) <- c("lng1", "lat1", "lng2", "lat2")
+chi.bounds <- split(unname(chi.bounds), names(chi.bounds))
 
 ##### SENSOR START #####
 
@@ -267,6 +275,8 @@ ui <- dashboardPage(
                                        c("Asthma ED Visits (0-18)" = "asthma018",
                                          "Asthma ED Visits (65+)" = "asthma65",
                                          "COVID-19 Cases" = "covid",
+                                         "PM2.5 (Historical 5-Year)" = "pm25",
+                                         "Social Vulnerability Index" = "svi",
                                          "None" = "none"),
                                        selected = "asthma018"),
                            leafletOutput("home_map_left", height = mapheight)),
@@ -282,6 +292,8 @@ ui <- dashboardPage(
                                        c("Asthma ED Visits (0-18)" = "asthma018",
                                          "Asthma ED Visits (65+)" = "asthma65",
                                          "COVID-19 Cases" = "covid",
+                                         "PM2.5 (Historical 5-Year)" = "pm25",
+                                         "Social Vulnerability Index" = "svi",
                                          "None" = "none"),
                                        selected = "covid"),
                            leafletOutput("home_map_right", height = mapheight)),
@@ -372,6 +384,11 @@ asthma.bins <- classIntervals(na.omit(c(sapply(6:7, function(z) asthma[,z][[1]])
 asthmapalette <- colorBin(palette="YlOrRd" , bins=asthma.bins, na.color="transparent") # discrete
 # asthmapalette <- colorBin(palette="YlOrRd" , domain = na.omit(c(sapply(6:7, function(z) asthma[,z][[1]]))), na.color="transparent") # continuous
 
+# svi.bins <- classIntervals(na.omit(trees$svi_pecent), 5, style="quantile")$brks # 5 quantile bins
+svi.bins <- classIntervals(na.omit(trees$svi_pecent), 5, style="fisher")$brks # 5 natural bins
+svipalette <- colorBin(palette="YlOrRd" , bins=svi.bins, na.color="transparent") # discrete
+# svipalette <- colorBin(palette="YlOrRd" , domain = na.omit(trees$svi_pecent), na.color="transparent") # continuous
+
 # Getting an error: Error in sprintf(covid$zip) : 'fmt' is not a character vector
 labels_covid <- sprintf(
   as.character(covid$zip)
@@ -383,7 +400,7 @@ server <- function(input, output) {
   all.fips <- reactiveValues(fips = c())
   all.sensors <- reactiveValues(sensors = c())
   
-  ##### REACIVE FUNCTIONS START #####
+  ##### REACTIVE FUNCTIONS START #####
   left.sensor <- function(map) {
     in.date <- input$home_dt + days(6) # week shifts forward for sensor data
     if (input$home_map_left_sensor == "pm25") {
@@ -481,6 +498,44 @@ server <- function(input, output) {
                     textsize = "15px",
                     direction = "auto"))
     }
+    else if (input$home_map_left_choropleth == "pm25") {
+      addPolygons(map,
+                  data = trees,
+                  fillColor = pm25palette(trees$nn_q3_pm2_),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = trees$geoid,
+                  label = trees$geoid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto")
+      )
+    }
+    else if (input$home_map_left_choropleth == "svi") {
+      addPolygons(map,
+                  data = trees,
+                  fillColor = svipalette(trees$svi_pecent),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = trees$geoid,
+                  label = trees$geoid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto")
+                  )
+    }
     else if (input$home_map_left_choropleth == "none") {
       map
     }
@@ -503,8 +558,19 @@ server <- function(input, output) {
                        values = covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]],
                        title = "COVID Cases / 100,000", opacity = 1)
     }
+    else if (input$home_map_left_choropleth == "pm25") {
+      map <- addLegend(map, "bottomright", pal = pm25palette, 
+                       values = trees$nn_q3_pm2_,
+                       title = "PM2.5", opacity = 1)
+    }
+    else if (input$home_map_left_choropleth == "svi") {
+      map <- addLegend(map, "bottomright", pal = svipalette, 
+                       values = trees$svi_pecent,
+                       title = "SVI Percentile", opacity = 1)
+    }
     # add sensor legend
-    if (input$home_map_left_sensor == "pm25") {
+    if (input$home_map_left_sensor == "pm25" &&
+        input$home_map_left_choropleth != "pm25") {
       map <- addLegend(map, "bottomright", pal = pm25palette, 
                        values = pm25[, which(colnames(pm25) == format(input$home_dt + days(6), "PM25_%Y%m%d"))],
                        title = "PM2.5", opacity = 1)
@@ -617,6 +683,44 @@ server <- function(input, output) {
                     textsize = "15px",
                     direction = "auto"))
     }
+    else if (input$home_map_right_choropleth == "pm25") {
+      addPolygons(map,
+                  data = trees,
+                  fillColor = pm25palette(trees$nn_q3_pm2_),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = trees$geoid,
+                  label = trees$geoid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto")
+      )
+    }
+    else if (input$home_map_right_choropleth == "svi") {
+      addPolygons(map,
+                  data = trees,
+                  fillColor = svipalette(trees$svi_pecent),
+                  fillOpacity  = 0.7,
+                  color = "white",
+                  stroke = FALSE,
+                  weight = 2,
+                  opacity = 1,
+                  dashArray = "3",
+                  layerId = trees$geoid,
+                  label = trees$geoid,
+                  labelOptions = labelOptions(
+                    style = list("font-weight" = "normal",
+                                 padding = "3px 8px"),
+                    textsize = "15px",
+                    direction = "auto")
+      )
+    }
     else if (input$home_map_right_choropleth == "none") {
       map
     }
@@ -639,8 +743,19 @@ server <- function(input, output) {
                        values = covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]],
                        title = "COVID Cases / 100,000", opacity = 1)
     }
+    else if (input$home_map_right_choropleth == "pm25") {
+      map <- addLegend(map, "bottomright", pal = pm25palette, 
+                       values = trees$nn_q3_pm2_,
+                       title = "PM2.5", opacity = 1)
+    }
+    else if (input$home_map_right_choropleth == "svi") {
+      map <- addLegend(map, "bottomright", pal = svipalette, 
+                       values = trees$svi_pecent,
+                       title = "SVI Percentile", opacity = 1)
+    }
     # add sensor legend
-    if (input$home_map_right_sensor == "pm25") {
+    if (input$home_map_right_sensor == "pm25" &&
+        input$home_map_right_choropleth != "pm25") {
       map <- addLegend(map, "bottomright", pal = pm25palette, 
                        values = pm25[, which(colnames(pm25) == format(input$home_dt + days(6), "PM25_%Y%m%d"))],
                        title = "PM2.5", opacity = 1)
@@ -656,13 +771,13 @@ server <- function(input, output) {
     
     map
   }
-  ##### REACIVE FUNCTIONS END #####
+  ##### REACTIVE FUNCTIONS END #####
   
   output$home_map_left <- renderLeaflet({
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
-      list()%>% # these 3 lines fit the map to the bbox of large.area
-      c(view.bounds)%>%
+      list()%>% # these 3 lines fit the map to the bbox of chi.admin.map
+      c(chi.bounds)%>%
       { exec(fitBounds, !!!.) }%>%
       addPolygons(data = large.area, 
                   color = "darkslategray",
@@ -695,7 +810,7 @@ server <- function(input, output) {
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
       list()%>% # these 3 lines fit the map to the bbox of large.area
-      c(view.bounds)%>%
+      c(counties.bounds)%>%
       { exec(fitBounds, !!!.) }%>%
       addPolygons(data = large.area, 
                   color = "darkslategray",
@@ -814,7 +929,8 @@ server <- function(input, output) {
   
   observeEvent(input$home_map_left_shape_click, { # update reactive values on click
     if(input$sidebar == "home") {
-      if(typeof(input$home_map_left_shape_click$id) == "character") { # zip code
+      if(typeof(input$home_map_left_shape_click$id) == "character" &&
+         str_length(input$home_map_left_shape_click$id) == 5) { # zip code
         all.fips$fips <- unique(c(all.fips$fips, input$home_map_left_shape_click$id))
       }
       else if(typeof(input$home_map_left_shape_click$id) == "integer") { # sensor id
@@ -824,7 +940,8 @@ server <- function(input, output) {
   })
   observeEvent(input$home_map_right_shape_click, { # update reactive values on click
     if(input$sidebar == "home") {
-      if(typeof(input$home_map_right_shape_click$id) == "character") { # zip code
+      if(typeof(input$home_map_right_shape_click$id) == "character" &&
+         str_length(input$home_map_right_shape_click$id) == 5) { # zip code
         all.fips$fips <- unique(c(all.fips$fips, input$home_map_right_shape_click$id))
       }
       else if(typeof(input$home_map_right_shape_click$id) == "integer") { # sensor id
