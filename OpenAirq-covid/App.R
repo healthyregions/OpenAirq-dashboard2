@@ -40,10 +40,11 @@ chi.boundary<- st_transform(chi.admin.map, 3035) %>% # azimuthal equal-area proj
 # cook.wo.chi <- st_difference(c(chi.boundary, large.area$geometry[large.area$COUNTYNAME == "Cook"]))[2]
 covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
 asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
-trees.all <- st_read("Data/Tract/tree_sst_master_tracts_v2_0_1.shp")
+trees.all <- st_read("Data/Tract")
 trees.var <- c("geoid", "svi_pecent", "trees_crow", "logtraf",
                "urban_floo", "heatisl","nn_q3_pm2_", "asthma_5yr")
 trees <- trees.all[,trees.var]
+cdph.permits <- st_read("Data/CDPH_Permits")
 
 ##### DATA LOADING END ##### 
 
@@ -273,6 +274,7 @@ ui <- dashboardPage(
                                        "Select Variable for Sensors",
                                        c("Air Quality Index" = "aqi",
                                          "PM2.5" = "pm25",
+                                         "Point Sources of Emissions" = "pe",
                                          "None" = "none"),
                                        selected = "aqi"),
                            selectInput(paste("home_map_left", "choropleth", sep = "_"), 
@@ -290,6 +292,7 @@ ui <- dashboardPage(
                                        "Select Variable for Sensors",
                                        c("Air Quality Index" = "aqi",
                                          "PM2.5" = "pm25",
+                                         "Point Sources of Emissions" = "pe",
                                          "None" = "none"),
                                        selected = "pm25"),
                            selectInput(paste("home_map_right", "choropleth", sep = "_"), 
@@ -460,6 +463,21 @@ server <- function(input, output) {
                                 padding = "3px 8px"),
                    textsize = "15px",
                    direction = "auto"))
+    }
+    else if (input$home_map_left_sensor == "pe") {
+      # consider raster here? incompatible with choropleth
+      addCircleMarkers(map,
+                       data = cdph.permits,
+                       color = "black",
+                       radius = 0.75,
+                       stroke = T,
+                       opacity = 1,
+                       weight = 0.75,
+                       label = cdph.permits$APPLICAT_1,
+                       popup = paste(paste("Applicant:", cdph.permits$APPLICAT_1, sep = " "),
+                                     paste("Address:", cdph.permits$ADDRE, sep = " "),
+                                     paste("Comments:", cdph.permits$COMME, sep = " "),
+                                     sep = "<br>"))
     }
     else if (input$home_map_left_sensor == "none") {
       map
@@ -645,6 +663,21 @@ server <- function(input, output) {
                                 padding = "3px 8px"),
                    textsize = "15px",
                    direction = "auto"))
+    }
+    else if (input$home_map_right_sensor == "pe") {
+      # consider raster here? incompatible with choropleth
+      addCircleMarkers(map,
+                       data = cdph.permits,
+                       color = "black",
+                       radius = 0.75,
+                       stroke = T,
+                       opacity = 1,
+                       weight = 0.75,
+                       label = cdph.permits$APPLICAT_1,
+                       popup = paste(paste("Applicant:", cdph.permits$APPLICAT_1, sep = " "),
+                                     paste("Address:", cdph.permits$ADDRE, sep = " "),
+                                     paste("Comments:", cdph.permits$COMME, sep = " "),
+                                     sep = "<br>"))
     }
     else if (input$home_map_right_sensor == "none") {
       map
