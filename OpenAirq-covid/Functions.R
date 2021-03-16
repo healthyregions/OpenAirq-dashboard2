@@ -26,8 +26,8 @@ generateOneTimeTab <- function(tabname, variablename, variabledescription, sourc
             box(width = 12,
                 sliderInput(inputId = paste(tabname, "dt", sep = "_"), "Select day:",
                             min = strptime("2020/12/06","%Y/%m/%d"), 
-                            max = strptime("2021/02/14","%Y/%m/%d"),
-                            value = strptime("2021/02/14","%Y/%m/%d"),
+                            max = strptime("2021/02/28","%Y/%m/%d"),
+                            value = strptime("2021/02/28","%Y/%m/%d"),
                             timeFormat = "%Y/%m/%d",
                             step = as.difftime(7, units = "days"),
                             animate = animationOptions(interval = 2000)))

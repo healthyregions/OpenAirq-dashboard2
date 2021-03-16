@@ -27,16 +27,16 @@ aqi<- read.csv("Data/PM25_Weekly/aqi.csv")
 aqi.means<- data.frame(AQI=apply(na.omit(aqi[, 7:ncol(aqi)]), 2, mean)) # may be worth doing externally
 aqi.trace<- aqi.means$AQI[week.idx] # may be worth doing externally
 covid.raw<- read.csv("Data/CovidWeekly.csv")
-# FIXME: +1 is a workaround used to truncate COVID data without respective sensor data
-covid.means<- data.frame(COVID=apply(na.omit(covid.raw[, ncol(covid.raw):(3 + 1)]), 2, mean)) # may be worth doing externally
+covid.means<- data.frame(COVID=apply(na.omit(covid.raw[, ncol(covid.raw):(3)]), 2, mean)) # may be worth doing externally
 covid.trace<- as.numeric(covid.means$COVID)
 asthma.raw<- read.csv("Data/Asthma2017.csv")
 asthma.raw$zip<- as.character(asthma.raw$zip)
 chi.community.map <- st_read("Data/Chicago")
 chi.admin.map<- st_read("Data/ZipcodeBoundary")
-chi.boundary<- st_transform(chi.admin.map, 3035) %>% # azimuthal equal-area projection (resolves warning)
-  st_union() %>%
-  st_transform(4326)
+chi.boundary<- st_union(chi.admin.map)
+# chi.boundary<- st_transform(chi.admin.map, 3035) %>% # azimuthal equal-area projection (resolves warning)
+#   st_union() %>%
+#   st_transform(4326)
 # cook.wo.chi <- st_difference(c(chi.boundary, large.area$geometry[large.area$COUNTYNAME == "Cook"]))[2]
 covid<- left_join(chi.admin.map, covid.raw, by = ("zip"))
 asthma<- left_join(chi.admin.map, asthma.raw, by = ("zip"))
@@ -49,6 +49,10 @@ cdph.permits <- st_read("Data/CDPH_Permits")
 ##### DATA LOADING END ##### 
 
 ##### VARIABLE START #####
+
+start_date<- strptime(names(covid)[ncol(covid) - 1], "COVID_Week_%Y%m%d")
+end_date<- strptime(names(covid)[6], "COVID_Week_%Y%m%d")
+daterange<- paste("From", end_date, "to", end_date + days(6), sep = " ")
 
 mapheight = 500
 
@@ -225,7 +229,7 @@ theme_air_chicago <- shinyDashboardThemeDIY(
 ##### THEME END #####
 
 
-###Function ###
+### Function ###
 
 ui <- dashboardPage(
   
@@ -262,9 +266,9 @@ ui <- dashboardPage(
               fluidRow(
                 box(width = 12,
                     sliderInput(paste("home", "dt", sep = "_"), "Select week:",
-                                min = strptime("2020/12/06","%Y/%m/%d"), 
-                                max = strptime("2021/02/14","%Y/%m/%d"),
-                                value = strptime("2021/02/14","%Y/%m/%d"),
+                                min = start_date, 
+                                max = end_date,
+                                value = end_date,
                                 timeFormat = "%Y/%m/%d",
                                 step = as.difftime(7, units = "days"),
                                 animate = animationOptions(interval = 2000)))
@@ -322,9 +326,9 @@ ui <- dashboardPage(
               fluidRow(
                 box(width = 12,
                     sliderInput(paste(covid.tabname, "dt", sep = "_"), "Select week:",
-                                min = strptime("2020/12/06","%Y/%m/%d"), 
-                                max = strptime("2021/02/14","%Y/%m/%d"),
-                                value = strptime("2021/02/14","%Y/%m/%d"),
+                                min = start_date, 
+                                max = end_date,
+                                value = end_date,
                                 timeFormat = "%Y/%m/%d",
                                 step = as.difftime(7, units = "days"),
                                 animate = animationOptions(interval = 2000))),
@@ -376,10 +380,6 @@ ui <- dashboardPage(
 
 
 ## Specify Mapping Details
-
-start_date<- strptime(names(covid)[ncol(covid) - 1], "COVID_Week_%Y%m%d")
-end_date<- strptime(names(covid)[6 + 1], "COVID_Week_%Y%m%d") # +1 is a placeholder to align covid/sensors
-daterange<- paste("From", end_date, "to", end_date + days(6), sep = " ")
 
 # deprecated
 # end_date<- Sys.Date()
@@ -583,40 +583,40 @@ server <- function(input, output) {
   left.controls <- function(map) {
     map <- addControl(map,
                       paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")),
-                      position = "bottomleft")
+                      position = "bottomright")
     # add choropleth legend
     if (input$home_map_left_choropleth == "asthma018") {
-      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate0_18,
+      map <- addLegend(map, "bottomleft", pal = asthmapalette, values = asthma$rate0_18,
                        title = "Asthma ED Visits / 10,000", opacity = 1)
     }
     else if (input$home_map_left_choropleth == "asthma65") {
-      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate65,
+      map <- addLegend(map, "bottomleft", pal = asthmapalette, values = asthma$rate65,
                        title = "Asthma ED Visits / 10,000", opacity = 1)
     }
     else if (input$home_map_left_choropleth == "covid") {
-      map <- addLegend(map, "bottomright", pal = covidpalette, 
+      map <- addLegend(map, "bottomleft", pal = covidpalette, 
                        values = covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]],
                        title = "COVID Cases / 100,000", opacity = 1)
     }
     else if (input$home_map_left_choropleth == "pm25") {
-      map <- addLegend(map, "bottomright", pal = pm25palette, 
+      map <- addLegend(map, "bottomleft", pal = pm25palette, 
                        values = trees$nn_q3_pm2_,
                        title = "PM2.5", opacity = 1)
     }
     else if (input$home_map_left_choropleth == "svi") {
-      map <- addLegend(map, "bottomright", pal = svipalette, 
+      map <- addLegend(map, "bottomleft", pal = svipalette, 
                        values = trees$svi_pecent,
                        title = "SVI Percentile", opacity = 1)
     }
     # add sensor legend
     if (input$home_map_left_sensor == "pm25" &&
         input$home_map_left_choropleth != "pm25") {
-      map <- addLegend(map, "bottomright", pal = pm25palette, 
+      map <- addLegend(map, "bottomleft", pal = pm25palette, 
                        values = pm25[, which(colnames(pm25) == format(input$home_dt + days(6), "PM25_%Y%m%d"))],
                        title = "PM2.5", opacity = 1)
     }
     else if (input$home_map_left_sensor == "aqi") {
-      map <- addLegend(map, "bottomright", pal = aqipalette, 
+      map <- addLegend(map, "bottomleft", pal = aqipalette, 
                        values = aqi[, which(colnames(aqi) == format(input$home_dt + days(6), "AQI_%Y%m%d"))],
                        labFormat = function(type, cuts, p) {
                          paste0(aqi.legend.labels)
@@ -783,40 +783,40 @@ server <- function(input, output) {
   right.controls <- function(map) {
     map <- addControl(map,
                       paste0("From ", format(input$home_dt, "%Y-%m-%d"), " to ", format(input$home_dt + days(6), "%Y-%m-%d")),
-                      position = "bottomleft")
+                      position = "bottomright")
     # add choropleth legend
     if (input$home_map_right_choropleth == "asthma018") {
-      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate0_18,
+      map <- addLegend(map, "bottomleft", pal = asthmapalette, values = asthma$rate0_18,
                        title = "Asthma ED Visits / 10,000", opacity = 1)
     }
     else if (input$home_map_right_choropleth == "asthma65") {
-      map <- addLegend(map, "bottomright", pal = asthmapalette, values = asthma$rate65,
+      map <- addLegend(map, "bottomleft", pal = asthmapalette, values = asthma$rate65,
                        title = "Asthma ED Visits / 10,000", opacity = 1)
     }
     else if (input$home_map_right_choropleth == "covid") {
-      map <- addLegend(map, "bottomright", pal = covidpalette, 
+      map <- addLegend(map, "bottomleft", pal = covidpalette, 
                        values = covid[, which(colnames(covid) == format(input$home_dt, "COVID_Week_%Y%m%d"))][[1]],
                        title = "COVID Cases / 100,000", opacity = 1)
     }
     else if (input$home_map_right_choropleth == "pm25") {
-      map <- addLegend(map, "bottomright", pal = pm25palette, 
+      map <- addLegend(map, "bottomleft", pal = pm25palette, 
                        values = trees$nn_q3_pm2_,
                        title = "PM2.5", opacity = 1)
     }
     else if (input$home_map_right_choropleth == "svi") {
-      map <- addLegend(map, "bottomright", pal = svipalette, 
+      map <- addLegend(map, "bottomleft", pal = svipalette, 
                        values = trees$svi_pecent,
                        title = "SVI Percentile", opacity = 1)
     }
     # add sensor legend
     if (input$home_map_right_sensor == "pm25" &&
         input$home_map_right_choropleth != "pm25") {
-      map <- addLegend(map, "bottomright", pal = pm25palette, 
+      map <- addLegend(map, "bottomleft", pal = pm25palette, 
                        values = pm25[, which(colnames(pm25) == format(input$home_dt + days(6), "PM25_%Y%m%d"))],
                        title = "PM2.5", opacity = 1)
     }
     else if (input$home_map_right_sensor == "aqi") {
-      map <- addLegend(map, "bottomright", pal = aqipalette, 
+      map <- addLegend(map, "bottomleft", pal = aqipalette, 
                        values = aqi[, which(colnames(aqi) == format(input$home_dt + days(6), "AQI_%Y%m%d"))],
                        labFormat = function(type, cuts, p) {
                          paste0(aqi.legend.labels)
@@ -865,7 +865,7 @@ server <- function(input, output) {
     leaflet() %>%
       addProviderTiles("CartoDB.Positron")%>%
       list()%>% # these 3 lines fit the map to the bbox of large.area
-      c(counties.bounds)%>%
+      c(chi.bounds)%>%
       { exec(fitBounds, !!!.) }%>%
       addPolygons(data = large.area, 
                   color = "darkslategray",
@@ -901,12 +901,22 @@ server <- function(input, output) {
     greens <- c("#165422", "#0b9926", "#14ff41", "#91faa5", "#d6ffde")
     
     p <- plot_ly() %>% config(displayModeBar = F) %>%
-      layout(legend = list(x = .5, y = 100, orientation = "h")
-             # shapes = list(list(type = "line", y0 = 0, y1 = 1, yref = "paper",
-             #               x0 = input$home_dt, x1 = input$home_dt, line = list(color = "darkgrey")))
+      layout(legend = list(x = .5, y = 100, orientation = "h"),
+             shapes = list(list(type = "line", y0 = 0, y1 = 1, xref = "x", yref = "paper",
+                           x0 = which(dates == format(input$home_dt, "%Y-%m-%d")) - 1,
+                           x1 = which(dates == format(input$home_dt, "%Y-%m-%d")) - 1,
+                           line = list(color = "darkgrey", dash = "dash")))
              ) %>%
-      add_segments(x = input$home_dt, xend = input$home_dt, y = 0, yend = max(covid.bins),
-                   line = list(yref = "paper", color = "darkgrey"), name = "Current Date")%>%
+      # add_segments(x = input$home_dt, xend = input$home_dt, y = 0, yend = max(covid.bins),
+      #              line = list(yref = "paper", color = "darkgrey"), name = "Current Date")%>%
+      # add_shapes(type="line",
+      #           xref="x", yref="paper",
+      #           x0=input$home_dt, y0=0, x1=input$home_dt, y1=1,
+      #           line=dict(
+      #             color="LightSeaGreen",
+      #             width=3,
+      #           )
+      # )%>%
       add_trace(x = dates,
                 y = covid.trace,
                 type = "scatter",
@@ -936,8 +946,7 @@ server <- function(input, output) {
       for (i in 1:length(all.fips$fips)) {
         p <- p %>%
           add_trace(x = dates,
-                    # FIXME: +1 is a workaround used to truncate COVID data without respective sensor data
-                    y = as.numeric(covid.raw[which(grepl(all.fips$fips[i], covid.raw$zip)), ncol(covid.raw):(3 + 1)]),
+                    y = as.numeric(covid.raw[which(grepl(all.fips$fips[i], covid.raw$zip)), ncol(covid.raw):(3)]),
                     type = "scatter",
                     mode = "lines",
                     opacity = 0.8,
