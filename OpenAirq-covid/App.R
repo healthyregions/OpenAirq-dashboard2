@@ -905,18 +905,7 @@ server <- function(input, output) {
              shapes = list(list(type = "line", y0 = 0, y1 = 1, xref = "x", yref = "paper",
                            x0 = which(dates == format(input$home_dt, "%Y-%m-%d")) - 1,
                            x1 = which(dates == format(input$home_dt, "%Y-%m-%d")) - 1,
-                           line = list(color = "darkgrey", dash = "dash")))
-             ) %>%
-      # add_segments(x = input$home_dt, xend = input$home_dt, y = 0, yend = max(covid.bins),
-      #              line = list(yref = "paper", color = "darkgrey"), name = "Current Date")%>%
-      # add_shapes(type="line",
-      #           xref="x", yref="paper",
-      #           x0=input$home_dt, y0=0, x1=input$home_dt, y1=1,
-      #           line=dict(
-      #             color="LightSeaGreen",
-      #             width=3,
-      #           )
-      # )%>%
+                           line = list(color = "darkgrey", dash = "dash"))))%>%
       add_trace(x = dates,
                 y = covid.trace,
                 type = "scatter",
